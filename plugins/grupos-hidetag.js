@@ -1,66 +1,47 @@
-import { generateWAMessageFromContent, downloadContentFromMessage } from '@whiskeysockets/baileys'
+// .n -> reenviar y notificar a todos
+import { generateWAMessageFromContent } from '@whiskeysockets/baileys' // si lo usas en tu setup, opcional
+// Ajusta imports según tu estructura
 
-const handler = async (m, { conn, participants }) => {
-  if (!m.isGroup || m.key.fromMe) return
-
-  const content = m.text || m.msg?.caption || ''
-  if (!/^.?n(\s|$)/i.test(content.trim())) return
-
-  // 📣 Reacción
-  await conn.sendMessage(m.chat, { react: { text: '📣', key: m.key } })
-
-  const users = participants.map(u => conn.decodeJid(u.id))
-  const userText = content.trim().replace(/^.?n(\s|$)/i, '')
-  const finalText = userText || ''
-  const q = m.quoted ? m.quoted : m
-  const mtype = q.mtype || ''
-  const isMedia = ['imageMessage', 'videoMessage', 'audioMessage', 'stickerMessage'].includes(mtype)
-  const originalCaption = (q.msg?.caption || q.text || '').trim()
-  const finalCaption = finalText || originalCaption || '📣 Notificación'
-
+let handler = async (m, { conn }) => {
   try {
-    if (m.quoted && isMedia) {
-      if (mtype === 'imageMessage' || mtype === 'videoMessage') {
-        // 🔁 Reenviar imagen o video (mostrará "Reenviado")
-        await conn.copyNForward(m.chat, q, true)
-      } else {
-        // 🔊 Audio o sticker
-        const media = await q.download()
-        if (mtype === 'audioMessage') {
-          await conn.sendMessage(m.chat, { audio: media, mimetype: 'audio/mpeg', ptt: false, mentions: users }, { quoted: q })
-          if (finalText) await conn.sendMessage(m.chat, { text: finalText, mentions: users, detectLink: true }, { quoted: q })
-        } else if (mtype === 'stickerMessage') {
-          await conn.sendMessage(m.chat, { sticker: media }, { quoted: q })
-        }
-      }
-    } else if (m.quoted && !isMedia) {
-      // 💬 Texto citado
-      await conn.sendMessage(m.chat, { text: finalCaption, mentions: users, detectLink: true }, { quoted: q })
-    } else if (!m.quoted && isMedia) {
-      if (mtype === 'imageMessage' || mtype === 'videoMessage') {
-        // 🔁 Reenviar imagen/video enviado directamente
-        await conn.copyNForward(m.chat, m, true)
-      } else {
-        const media = await m.download()
-        if (mtype === 'audioMessage') {
-          await conn.sendMessage(m.chat, { audio: media, mimetype: 'audio/mpeg', ptt: false, mentions: users }, { quoted: m })
-          if (finalText) await conn.sendMessage(m.chat, { text: finalText, mentions: users, detectLink: true }, { quoted: m })
-        } else if (mtype === 'stickerMessage') {
-          await conn.sendMessage(m.chat, { sticker: media }, { quoted: m })
-        }
-      }
-    } else {
-      // ✉️ Texto sin citar nada
-      await conn.sendMessage(m.chat, { text: finalCaption, mentions: users, detectLink: true }, { quoted: m })
-    }
-  } catch (e) {
-    await conn.sendMessage(m.chat, { text: '📣 Notificación', mentions: users, detectLink: true }, { quoted: m })
+    if (!m.isGroup) return conn.reply(m.chat, 'Este comando solo funciona en grupos.', m);
+
+    // Obtener el mensaje a reenviar: si hay m.quoted (respondiste), usarlo; si no, usar el propio m
+    const messageToForward = m.quoted ? m.quoted : m;
+
+    // Obtener participantes del grupo
+    const meta = await conn.groupMetadata(m.chat);
+    let participants = meta.participants.map(p => p.id);
+
+    // Quitar el id del bot (no lo mencionamos a sí mismo)
+    const botId = conn.user && conn.user.id ? conn.user.id : (conn.user && conn.user.jid ? conn.user.jid : null);
+    if (botId) participants = participants.filter(id => id !== botId);
+
+    // 1) enviar un texto arriba que indique "Reenviado" y que mencione a todos (notify everyone)
+    // Nota: la opción 'mentions' funciona para notificar/etiquetar a los usuarios.
+    await conn.sendMessage(m.chat, {
+      text: '🔁 Reenviado',
+      mentions: participants
+    }, { quoted: m });
+
+    // 2) reenviar (forward) el mensaje original tal cual
+    // copyNForward preserva el tipo (texto/media/sticker)
+    // true fuerza la forward (sin atribuir al bot)
+    await conn.copyNForward(m.chat, messageToForward, true, { 
+      // quoted: m, // opcional: si quieres que el reenvío aparezca citado al comando
+      // contextInfo: { mentionedJid: participants } // normalmente no hace falta aquí, ya hicimos la mención arriba
+    });
+
+  } catch (err) {
+    console.error(err);
+    try {
+      await conn.reply(m.chat, 'Ocurrió un error al reenviar. Revisa la consola.', m);
+    } catch (e) { /* no hacer nada */ }
   }
 }
 
-handler.customPrefix = /^.?n(\s|$)/i
-handler.command = new RegExp()
-handler.group = true
-handler.admin = true
-
-export default handler
+// Opciones del handler (ajusta según tu framework)
+handler.customPrefix = /^(\.n|n)(\s|$)/i;
+handler.command = new RegExp(); // permite customPrefix
+handler.group = true; // solo en grupos
+export default handler;
