@@ -3,7 +3,13 @@ let handler = async (m, { conn }) => {
     if (!m.isGroup)
       return conn.reply(m.chat, '⚠️ Este comando solo funciona en grupos.', m);
 
-    const body = m.text || '';
+    const body =
+      m.text ||
+      m.message?.extendedTextMessage?.text ||
+      m.message?.imageMessage?.caption ||
+      m.message?.videoMessage?.caption ||
+      '';
+
     const text = body.replace(/^(\.n|n)\s*/i, '').trim();
 
     const groupMetadata = await conn.groupMetadata(m.chat);
