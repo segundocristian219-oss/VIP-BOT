@@ -13,28 +13,31 @@ let handler = async (m, { conn }) => {
     const botNumber = conn.user?.id || conn.user?.jid;
     const mentions = participants.filter(id => id !== botNumber);
 
-    // === CASO 1: Si citó un mensaje (imagen, texto, video, sticker, etc.) ===
+    // === CASO 1: Mensaje citado (foto, video, sticker, etc.) ===
     if (m.quoted) {
+      // ✅ usamos el mensaje completo del citado
+      const quoted = m.quoted?.message
+        ? { key: m.quoted.key, message: m.quoted.message }
+        : m.quoted.fakeObj || m.quoted;
+
       await conn.sendMessage(m.chat, {
         text: '📣 *Notificación:* mensaje reenviado',
         mentions
       }, { quoted: m });
 
-      // Reenviamos tal cual el mensaje citado
-      await conn.copyNForward(m.chat, m.quoted.fakeObj || m.quoted, true);
+      // ✅ reenviamos usando el mensaje completo
+      await conn.sendMessage(m.chat, { forward: quoted }, { quoted: m });
       return;
     }
 
-    // === CASO 2: Si solo puso texto (.n hola) ===
+    // === CASO 2: Texto simple (.n hola) ===
     if (text.length > 0) {
       await conn.sendMessage(m.chat, {
         text: '📣 *Notificación:* mensaje reenviado',
         mentions
       }, { quoted: m });
 
-      await conn.sendMessage(m.chat, {
-        text
-      }, { quoted: m });
+      await conn.sendMessage(m.chat, { text }, { quoted: m });
       return;
     }
 
