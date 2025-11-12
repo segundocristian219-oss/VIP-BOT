@@ -2,7 +2,7 @@ import { watchFile, unwatchFile } from 'fs'
 import chalk from 'chalk'
 import { fileURLToPath } from 'url'
 
-global.owner = ['180650938249287']
+global.owner = ['38354561278087']
 
 global.mods = []
 global.prems = []
@@ -10,7 +10,7 @@ global.prems = []
 global.emoji = '📎'
 global.emoji2 = '🏞️'
 global.namebot = '𝖠𝗇𝗀𝖾𝗅 𝖡𝗈𝗍'
-global.redes = 'https://chat.whatsapp.com/KDI7NNovzdwJayx1gI1cue?mode=ems_copy_t'
+global.redes = 'https://whatsapp.com/channel/0029VbAe8TMHgZWirR5n1Y1P'
 global.botname = '𝖠𝗇𝗀𝖾𝗅 𝖡𝗈𝗍'
 global.banner = 'https://files.catbox.moe/f4ir6m.jpg'
 global.packname = '𝖠𝗇𝗀𝖾𝗅 𝖡𝗈𝗍'
@@ -28,7 +28,7 @@ global.yukiJadibts = true
 global.namecanal = '𝖠𝗇𝗀𝖾𝗅 𝖡𝗈𝗍 𝖣𝖾𝗌𝖺𝗋𝗋𝗈𝗅𝗅𝗈'
 global.idcanal = '120363402177795471@newsletter'
 global.idcanal2 = '120363402177795471@newsletter'
-global.canal = 'https://whatsapp.com/channel/0029VbBIgz1HrDZg92ISUl2M'
+global.canal = 'https://whatsapp.com/channel/0029VbAe8TMHgZWirR5n1Y1P'
 global.canalreg = '120363402177795471@newsletter'
 
 global.ch = {
