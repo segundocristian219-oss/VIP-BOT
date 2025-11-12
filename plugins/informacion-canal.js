@@ -4,7 +4,7 @@ import path from 'path'
 export async function before(m, { conn }) {
   try {
 
-    let nombreBot = global.namebot || 'MaycolPlus'
+    let nombreBot = global.namebot || '𝖠𝗇𝗀𝖾𝗅 𝖡𝗈𝗍'
     let bannerFinal = 'https://files.catbox.moe/f4ir6m.jpg'
 
 
