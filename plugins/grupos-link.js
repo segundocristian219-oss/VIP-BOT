@@ -13,7 +13,7 @@ const handler = async (msg, { conn }) => {
 
     await conn.sendMessage(chatId, {
       text: `🔗 *Link del grupo:*\n${link}`
-    }, { quoted: msg });
+    }, { quoted: msg, detectLinks: true });
 
     await conn.sendMessage(chatId, {
       react: { text: "🔗", key: msg.key }
@@ -29,4 +29,4 @@ const handler = async (msg, { conn }) => {
 
 handler.customPrefix = /^\.?(link)$/i;
 handler.command = new RegExp();
-export default handler
+export default handler;
