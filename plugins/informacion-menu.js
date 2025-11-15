@@ -8,23 +8,22 @@ let handler = async (m, { conn, args }) => {
   let uptime = clockString(_uptime)
   let totalreg = Object.keys(global.db.data.users).length
 
-  // Saludo decorado
   let hour = new Intl.DateTimeFormat('es-PE', {
     hour: 'numeric',
     hour12: false,
     timeZone: 'America/Lima'
   }).format(new Date())
 
-  let saludo = hour < 4  ? "🌌 Aún es de madrugada... las almas rondan 👻" :
-             hour < 7  ? "🌅 El amanecer despierta... buenos inicios ✨" :
-             hour < 12 ? "🌞 Buenos días, que la energía te acompañe 💫" :
-             hour < 14 ? "🍽️ Hora del mediodía... ¡a recargar fuerzas! 🔋" :
-             hour < 18 ? "🌄 Buenas tardes... sigue brillando como el sol 🌸" :
-             hour < 20 ? "🌇 El atardecer pinta el cielo... momento mágico 🏮" :
-             hour < 23 ? "🌃 Buenas noches... que los espíritus te cuiden 🌙" :
-             "🌑 Es medianoche... los fantasmas susurran en la oscuridad 👀"
+  let saludo =
+    hour < 4  ? "🌌 Aún es de madrugada... las almas rondan 👻" :
+    hour < 7  ? "🌅 El amanecer despierta... buenos inicios ✨" :
+    hour < 12 ? "🌞 Buenos días, que la energía te acompañe 💫" :
+    hour < 14 ? "🍽️ Hora del mediodía... ¡a recargar fuerzas! 🔋" :
+    hour < 18 ? "🌄 Buenas tardes... sigue brillando como el sol 🌸" :
+    hour < 20 ? "🌇 El atardecer pinta el cielo... momento mágico 🏮" :
+    hour < 23 ? "🌃 Buenas noches... que los espíritus te cuiden 🌙" :
+    "🌑 Es medianoche... los fantasmas susurran en la oscuridad 👀"
 
-  // Agrupar comandos por categorías
   let categories = {}
   for (let plugin of Object.values(global.plugins)) {
     if (!plugin.help || !plugin.tags) continue
@@ -34,21 +33,16 @@ let handler = async (m, { conn, args }) => {
     }
   }
 
-  // Emojis random por categoría
   let decoEmojis = ['🌙', '👻', '🪄', '🏮', '📜', '💫', '😈', '🍡', '🔮', '🌸', '🪦', '✨']
   let emojiRandom = () => decoEmojis[Math.floor(Math.random() * decoEmojis.length)]
 
   let menuText = `
-👋🏻 𝖧𝗈𝗅𝖺 @${userId.split('@')[0]} 𝖻𝗂𝖾𝗇𝗏𝖾𝗇𝗂𝖽𝗈 𝖺𝗅 𝗆𝖾𝗇𝗎𝗀𝗋𝗎𝗉𝗈 𝖽𝖾 *𝖻𝖺𝗄𝗂-𝖡𝗈𝗍 𝖨𝖠* 𝖺𝗾𝗎𝗂́ 𝖾𝗇𝖼𝗈𝗇𝗍𝗋𝖺𝗋𝖺́𝗌 𝗅𝗈𝗌 𝖼𝗈𝗆𝖺𝗇𝖽𝗈𝗌 𝗉𝖺𝗋𝖺 𝗆𝖺𝗇𝗍𝖾𝗇𝖾𝗋 𝗎𝗇 𝗍𝗈𝗍𝖺𝗅 𝗈𝗋𝖽𝖾𝗇 𝖽𝖾 𝗍𝗎́ 𝗀𝗋𝗎𝗉𝗈! 
- 
-[ ☀︎ ] Tiempo observándote: ${uptime}  
+👋🏻 𝖧𝗈𝗅𝖺 @${userId.split('@')[0]} 𝖻𝗂𝖾𝗇𝗏𝖾𝗇𝗂𝖽𝗈 𝖺𝗅 𝗆𝖾𝗇𝗎𝗀𝗋𝗎𝗉𝗈 𝖽𝖾 *𝖻𝖺𝗄𝗂-𝖡𝗈𝗍 𝖨𝖠*
 
-╚════════════╝
-
-━━━━━━━━━━━━━━━
+[ ☀︎ ] Tiempo observándote: ${uptime}
 
 ${saludo}
-𝖠𝗇𝗀𝖾𝗅 𝖡𝗈𝗍`.trim()
+`.trim()
 
   for (let [tag, cmds] of Object.entries(categories)) {
     let tagName = tag.toUpperCase().replace(/_/g, ' ')
@@ -60,28 +54,22 @@ ${cmds.map(cmd => `│ ▪️ ${cmd}`).join('\n')}
 ╰─━━━━━━━━━━━╯`
   }
 
-  // Enviar menú con video estilo gif
-  await conn.sendMessage(m.chat, {
-    video: fs.readFileSync('./storage/videos/lv_0_20251012222157.mp4'),
-    gifPlayback: true,
-    caption: menuText,
-    gifPlayback: true,
-    contextInfo: {
-      mentionedJid: [m.sender, userId],
-      isForwarded: true,
-      forwardedNewsletterMessageInfo: {
-        newsletterJid: '120363402177795471@newsletter',
-        newsletterName: ' 𝖣𝖾𝗌𝖺𝗋𝗋𝗈𝗅𝗅𝗈',
-        serverMessageId: -1,
-      },
-      forwardingScore: 999
-    }
-  }, { quoted: m })
+  await conn.sendMessage(
+    m.chat,
+    {
+      video: { url: "https://cdn.russellxz.click/a1fe9136.mp4" },
+      caption: menuText,
+      gifPlayback: true,
+      ...global.rcanal
+    },
+    { quoted: m }
+  )
 }
 
 handler.help = ['menu']
 handler.tags = ['main']
 handler.command = ['menu', 'menú', 'help', 'ayuda']
+handler.rcanal = true
 
 export default handler
 
@@ -90,4 +78,4 @@ function clockString(ms) {
   let m = Math.floor(ms / 60000) % 60
   let s = Math.floor(ms / 1000) % 60
   return `${h}h ${m}m ${s}s`
-    }
+}
