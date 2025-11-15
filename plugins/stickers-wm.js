@@ -35,7 +35,7 @@ let handler = async (m, { conn, text }) => {
     return conn.sendMessage(
       m.chat,
       {
-        text: `✿ Responde a un sticker para cambiarle el WM`,
+        text: `𝖱𝖾𝗌𝗉𝗈𝗇𝖽𝖾 𝖠 𝖴𝗇 𝖲𝗍𝗂𝖼𝗄𝖾𝗋 𝖯𝖺𝗋𝖺 𝖢𝖺𝗆𝖻𝗂𝖺𝗋𝗅𝖾 𝖤𝗅 𝖠𝗎𝗍𝗈𝗋`,
         ...global.rcanal
       },
       { quoted: m }
