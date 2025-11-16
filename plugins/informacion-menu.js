@@ -68,7 +68,7 @@ ${cmds.map(cmd => `│ ▪️ ${cmd}`).join('\n')}
 }
 
 handler.help = ['menu']
-handler.tags = ['𝖬𝖾𝗇𝗎𝗌|𝖨𝗇𝖿𝗈𝗋𝗆𝖺𝖼𝗂𝗈𝗇']
+handler.tags = ['𝖬𝖾𝗇𝗎𝗌']
 handler.command = ['menu', 'menú', 'help', 'ayuda']
 handler.rcanal = true
 
