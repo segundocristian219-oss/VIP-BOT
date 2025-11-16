@@ -52,7 +52,7 @@ let handler = async (m, { conn, args }) => {
 
 👋🏻 Hola @${userId.split('@')[0]} 𝖬𝗎𝖼𝗁𝗈 𝖦𝗎𝗌𝗍𝗈, 𝖬𝗂 𝖭𝗈𝗆𝖻𝗋𝖾 𝖾𝗌 *𝖠𝗇𝗀𝖾𝗅 𝖡𝗈𝗍*, 𝖤𝗌𝗉𝖾𝗋𝗈 𝖰𝗎𝖾 𝖳𝖾 𝖲𝖾𝖺 𝖣𝖾 𝖬𝗎𝖼𝗁𝖺 𝖴𝗍𝗂𝗅𝗂𝖽𝖺𝖽, 𝖦𝗋𝖺𝖼𝗂𝖺𝗌 𝖯𝗈𝗋 𝖲𝗎 𝖯𝗋𝖾𝖿𝖾𝗋𝖾𝗇𝖼𝗂𝖺 🏞️.
 
-Tiempo activo: ${uptime}
+𝖳𝗂𝖾𝗆𝗉𝗈 𝖰𝗎𝖾 𝖤𝗁 𝖤𝗌𝗍𝖺𝖽𝗈 𝖠𝖼𝗍𝗂𝖼𝗈: ${uptime} 🏞️
 
 ${saludo}
 `.trim()
