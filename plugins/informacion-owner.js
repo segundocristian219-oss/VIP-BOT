@@ -16,7 +16,7 @@ let handler = async (m, { conn }) => {
   const owners = [
     {
       name: '𝖠𝗇𝗀𝖾𝗅.𝗑𝗒𝗓',
-      desc: `👑 Creador Principal de Angel-𝖡𝗈𝗍`,
+      desc: `𝖢𝗋𝖾𝖺𝖽𝗈𝗋 𝖯𝗋𝗂𝗇𝖼𝗂𝗉𝖺𝗅 𝖣𝖾 𝖠𝗇𝗀𝖾𝗅 𝖡𝗈𝗍 👑`,
       image: 'https://cdn.russellxz.click/54d7671b.jpeg',
       buttons: [
         { name: 'WhatsApp', url: 'https://wa.me/5217227584934' }
@@ -24,7 +24,7 @@ let handler = async (m, { conn }) => {
     },
     {
       name: '𝖠𝗇𝗀𝖾𝗅',
-      desc: 'tester oficial 🏞️',
+      desc: '𝖴𝗇𝗈 𝖣𝖾 𝖫𝗈𝗌 𝖨𝗇𝗏𝖾𝗋𝗌𝗂𝗈𝗇𝗂𝗌𝗍𝖺𝗌 𝖯𝗋𝗂𝗇𝖼𝗂𝗉𝖺𝗅𝖾𝗌 🗣️',
       image: 'https://cdn.russellxz.click/54ba5eb9.jpeg',
       buttons: [
         { name: 'WhatsApp', url: 'https://wa.me/27635180621' }
