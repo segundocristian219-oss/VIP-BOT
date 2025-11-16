@@ -135,3 +135,111 @@ async function prepareFormats(videoUrl, id) {
     } catch {}
   }
 }
+async function sendFile(conn, chatId, filePath, title, asDocument, type, quoted) {
+  if (!fs.existsSync(filePath)) return
+
+  const buffer = fs.readFileSync(filePath)
+  const mimetype = type === "audio" ? "audio/mpeg" : "video/mp4"
+  const fileName = `${title}.${type === "audio" ? "mp3" : "mp4"}`
+
+  await conn.sendMessage(
+    chatId,
+    {
+      [asDocument ? "document" : type]: buffer,
+      mimetype,
+      fileName
+    },
+    { quoted }
+  )
+}
+
+async function handleDownload(conn, job, choice) {
+  const mapping = {
+    "👍": "audio",
+    "❤️": "video",
+    "📄": "audioDoc",
+    "📁": "videoDoc"
+  }
+
+  const key = mapping[choice]
+  if (!key) return
+
+  const isDoc = key.endsWith("Doc")
+  const type = key.startsWith("audio") ? "audio" : "video"
+
+  let filePath
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const cached = cache[job.commandMsg.key.id]?.files?.[key]
+
+      if (cached && fs.existsSync(cached)) {
+        const size = fileSizeMB(cached).toFixed(1)
+
+        await conn.sendMessage(
+          job.chatId,
+          {
+            text: `⚡ Enviando ${type} (${size} MB)`
+          },
+          { quoted: job.commandMsg }
+        )
+
+        return await sendFile(
+          conn,
+          job.chatId,
+          cached,
+          job.title,
+          isDoc,
+          type,
+          job.commandMsg
+        )
+      }
+
+      await conn.sendMessage(
+        job.chatId,
+        { text: `⏳ Preparando ${type}...` },
+        { quoted: job.commandMsg }
+      )
+
+      const mediaUrl = await skyRequest(job.videoUrl, type)
+      if (!mediaUrl) throw new Error("No se obtuvo enlace válido")
+
+      const ext = type === "audio" ? "mp3" : "mp4"
+      const unique = crypto.randomUUID()
+      const inFile = path.join(TMP_DIR, `${unique}_in.${ext}`)
+
+      filePath = inFile
+
+      await queueDownload(() => downloadToFile(mediaUrl, inFile))
+
+      if (type === "audio" && path.extname(inFile) !== ".mp3") {
+        filePath = await convertToMp3(inFile)
+      }
+
+      const sizeMB = fileSizeMB(filePath)
+      if (sizeMB > 100) {
+        throw new Error(`Archivo demasiado grande (${sizeMB.toFixed(1)}MB)`)
+      }
+
+      return await sendFile(
+        conn,
+        job.chatId,
+        filePath,
+        job.title,
+        isDoc,
+        type,
+        job.commandMsg
+      )
+    } catch (err) {
+      if (attempt === 2) {
+        await conn.sendMessage(
+          job.chatId,
+          { text: `❌ Error: ${err.message}` },
+          { quoted: job.commandMsg }
+        )
+      }
+    } finally {
+      safeUnlink(filePath)
+    }
+  }
+}
