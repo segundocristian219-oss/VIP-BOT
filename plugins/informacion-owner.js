@@ -2,8 +2,8 @@ import pkg from '@whiskeysockets/baileys'
 const { generateWAMessageContent, generateWAMessageFromContent, proto } = pkg
 
 let handler = async (m, { conn }) => {
-  const proses = `✨\n *Obteniendo información de mis creadores...*`
-  await conn.sendMessage(m.chat, { text: proses }, { quoted: m })
+
+  await conn.sendMessage(m.chat, { react: { text: "🔥", key: m.key } })
 
   async function createImage(url) {
     const { imageMessage } = await generateWAMessageContent(
@@ -20,7 +20,6 @@ let handler = async (m, { conn }) => {
       image: 'https://cdn.russellxz.click/54d7671b.jpeg',
       buttons: [
         { name: 'WhatsApp', url: 'https://wa.me/5217227584934' }
-
       ]
     },
     {
@@ -29,7 +28,6 @@ let handler = async (m, { conn }) => {
       image: 'https://cdn.russellxz.click/54ba5eb9.jpeg',
       buttons: [
         { name: 'WhatsApp', url: 'https://wa.me/27635180621' }
-
       ]
     }
   ]
@@ -73,12 +71,6 @@ let handler = async (m, { conn }) => {
             deviceListMetadataVersion: 2
           },
           interactiveMessage: proto.Message.InteractiveMessage.fromObject({
-            body: proto.Message.InteractiveMessage.Body.create({
-              text: `👑 Creadores de Angel Bot`
-            }),
-            footer: proto.Message.InteractiveMessage.Footer.create({
-              text: 'Conoce a los desarrolladores del bot'
-            }),
             carouselMessage: proto.Message.InteractiveMessage.CarouselMessage.fromObject({
               cards
             })
