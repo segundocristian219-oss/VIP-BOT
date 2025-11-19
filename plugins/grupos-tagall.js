@@ -1,53 +1,86 @@
-import { parsePhoneNumber } from "libphonenumber-js";
+import PhoneNumber from "libphonenumber-js";
 
-const handler = async (m, { conn }) => {
+const handler = async (m, { conn, participants, isAdmin, isOwner }) => {
+  if (!m.isGroup) return;
+  if (!isAdmin && !isOwner) return global.dfail?.('admin', m, conn);
 
-  if (!m.isGroup) return m.reply("❌ Este comando solo funciona en grupos.");
-
-  const group = await conn.groupMetadata(m.chat);
-  const participants = group.participants || [];
-
-  const flags = {
-    MX: "🇲🇽", CO: "🇨🇴", AR: "🇦🇷", PE: "🇵🇪",
-    CL: "🇨🇱", VE: "🇻🇪", US: "🇺🇸", BR: "🇧🇷",
-    EC: "🇪🇨", GT: "🇬🇹", SV: "🇸🇻", HN: "🇭🇳",
-    NI: "🇳🇮", CR: "🇨🇷", PA: "🇵🇦", UY: "🇺🇾",
-    PY: "🇵🇾", BO: "🇧🇴", DO: "🇩🇴", PR: "🇵🇷",
-    ES: "🇪🇸", UNK: "🏳️"
-  };
-
-  function getFlag(jid) {
-    let num = jid.split("@")[0];
-    if (!num.startsWith("+")) num = "+" + num;
-
+  async function resolveNumber(id) {
     try {
-      const parsed = parsePhoneNumber(num);
-      return parsed?.country ? flags[parsed.country] || flags.UNK : flags.UNK;
-    } catch {
-      return flags.UNK;
+      // Meta DS6 → resolver número real
+      const info = await conn.onWhatsApp(id);
+      if (info && info[0] && info[0].jid) {
+        return info[0].jid.replace("@s.whatsapp.net", "");
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  function getFlagFromNumber(num) {
+    try {
+      const pn = PhoneNumber(num, { extract: true });
+      if (!pn || !pn.country) return "🏳️";
+      const code = pn.country;
+
+      const isoFlags = {
+        MX: "🇲🇽",
+        AR: "🇦🇷",
+        BO: "🇧🇴",
+        BR: "🇧🇷",
+        CL: "🇨🇱",
+        CO: "🇨🇴",
+        CR: "🇨🇷",
+        CU: "🇨🇺",
+        EC: "🇪🇨",
+        ES: "🇪🇸",
+        GT: "🇬🇹",
+        HN: "🇭🇳",
+        HT: "🇭🇹",
+        NI: "🇳🇮",
+        PA: "🇵🇦",
+        PE: "🇵🇪",
+        PY: "🇵🇾",
+        SV: "🇸🇻",
+        UY: "🇺🇾",
+        US: "🇺🇸",
+        VE: "🇻🇪"
+      };
+
+      return isoFlags[code] || "🌐";
+    } catch (e) {
+      return "🏳️";
     }
   }
 
-  let texto = `📢 *MENCIÓN GLOBAL*\n\n`;
-  const mentions = [];
+  let texto = `📣 *MENCIÓN GLOBAL*\n\n`;
 
-  for (let p of participants) {
-    const jid = p.id;
-    const number = jid.split("@")[0]; // 🔥 fuerza número real SIEMPRE
-    const tag = "@" + number;
+  let mentionList = [];
 
-    const flag = getFlag(jid);
+  for (const user of participants) {
+    const realNum = await resolveNumber(user.id);  
 
-    texto += `${flag} ${tag}\n`;
-    mentions.push(jid);
+    let flag = "🏳️";
+    let num = "DESCONOCIDO";
+
+    if (realNum) {
+      num = realNum;
+      flag = getFlagFromNumber(realNum);
+    }
+
+    texto += `${flag} @${num}\n`;
+    mentionList.push(user.id);
   }
+
+  await conn.sendMessage(m.chat, { react: { text: '🔔', key: m.key } });
 
   await conn.sendMessage(m.chat, {
     text: texto,
-    mentions
+    mentions: mentionList
   }, { quoted: m });
-
 };
 
-handler.command = ["todos"];
+handler.customPrefix = /^\.?(todos)$/i;
+handler.command = new RegExp();
+handler.group = true;
+handler.admin = true;
+
 export default handler;
