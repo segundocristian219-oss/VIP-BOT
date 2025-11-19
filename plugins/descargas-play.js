@@ -12,7 +12,7 @@ const TMP_DIR = path.join(process.cwd(), "tmp")
 if (!fs.existsSync(TMP_DIR)) fs.mkdirSync(TMP_DIR, { recursive: true })
 
 const SKY_BASE = process.env.API_BASE || "https://api-sky.ultraplus.click"
-const SKY_KEY = process.env.API_KEY || "Neveloopp"
+const SKY_KEY = process.env.API_KEY || "Russellxz"
 
 const MAX_CONCURRENT = Number(process.env.MAX_CONCURRENT) || 3
 const MAX_FILE_MB = Number(process.env.MAX_FILE_MB) || 99
