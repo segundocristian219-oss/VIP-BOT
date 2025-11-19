@@ -5,20 +5,17 @@ const handler = async (m, { conn, participants, isAdmin, isOwner }) => {
   const flagMap = {
     "591": "🇧🇴", "593": "🇪🇨", "595": "🇵🇾", "598": "🇺🇾", "507": "🇵🇦",
     "505": "🇳🇮", "506": "🇨🇷", "502": "🇬🇹", "503": "🇸🇻", "504": "🇭🇳",
-    "509": "🇭🇹", "549": "🇦🇷", "54": "🇦🇷", "55": "🇲🇽", "56": "🇨🇱",
+    "509": "🇭🇹", "549": "🇦🇷", "54": "🇦🇷", "55": "🇧🇷", "56": "🇨🇱",
     "57": "🇨🇴", "58": "🇻🇪", "52": "🇲🇽", "53": "🇨🇺", "51": "🇵🇪",
-    "1": "🇲🇽", "34": "🇪🇸"
+    "1": "🇺🇸", "34": "🇪🇸"
   };
 
-  // Función EXACTA estilo .pais
-  function getFlag(num) {
-    const numero = (num || "").replace(/[^0-9]/g, ""); // ← CRUCIAL
-    const prefixes = Object.keys(flagMap).sort((a, b) => b.length - a.length);
-
-    for (const p of prefixes) {
-      if (numero.startsWith(p)) {
-        return flagMap[p];
-      }
+  // Igual que en .pais
+  function getFlag(jid) {
+    const numero = jid.replace(/[^0-9]/g, "");
+    const keys = Object.keys(flagMap).sort((a, b) => b.length - a.length);
+    for (const k of keys) {
+      if (numero.startsWith(k)) return flagMap[k];
     }
     return "🌐";
   }
@@ -27,7 +24,7 @@ const handler = async (m, { conn, participants, isAdmin, isOwner }) => {
   texto += `   *PARA ${participants.length} MIEMBROS* 🔔\n\n`;
 
   for (const user of participants) {
-    const numero = (user.id || "");
+    const numero = user.id;
     const bandera = getFlag(numero);
 
     texto += `┊» ${bandera} @${numero.split("@")[0]}\n`;
@@ -43,7 +40,7 @@ const handler = async (m, { conn, participants, isAdmin, isOwner }) => {
 
 handler.customPrefix = /^\.?(todos)$/i;
 handler.command = new RegExp();
-handler.group = true;
 handler.admin = true;
+handler.group = true;
 
 export default handler;
