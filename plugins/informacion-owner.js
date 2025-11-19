@@ -29,6 +29,14 @@ let handler = async (m, { conn }) => {
       buttons: [
         { name: 'WhatsApp', url: 'https://wa.me/5215584393251' }
       ]
+    },
+    {
+      name: '𝕭𝖔𝖙 𝕸𝖆𝖘𝖙𝖊𝖗',
+      desc: '𝕰𝖓𝖈𝖆𝖗𝖌𝖆𝖉𝖔 𝖉𝖊 𝖑𝖔𝖘 𝖘𝖊𝖗𝖛𝖎𝖉𝖔𝖗𝖊𝖘 ⚙️',
+      image: 'https://cdn.russellxz.click/7f8e29e1.jpeg',
+      buttons: [
+        { name: 'WhatsApp', url: 'https://wa.me/5215512345678' }
+      ]
     }
   ]
 
