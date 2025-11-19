@@ -1,4 +1,4 @@
-import { parsePhoneNumber, parsePhoneNumberFromString } from "libphonenumber-js";
+import { parsePhoneNumber } from "libphonenumber-js";
 
 const handler = async (m, { conn }) => {
 
@@ -16,23 +16,13 @@ const handler = async (m, { conn }) => {
     ES: "🇪🇸", UNK: "🏳️"
   };
 
-  // 🔥 FUNCIÓN QUE SÍ DETECTA EL PAÍS CORRECTAMENTE
   function getFlag(jid) {
     let num = jid.split("@")[0];
-
-    // Asegurar que empiece con +
     if (!num.startsWith("+")) num = "+" + num;
 
     try {
-      // Intento 1: parseo directo
-      let parsed = parsePhoneNumber(num);
-      if (parsed?.country) return flags[parsed.country] || flags.UNK;
-
-      // Intento 2: intentar con México por default (Meta lo usa mucho)
-      parsed = parsePhoneNumber(num, "MX");
-      if (parsed?.country) return flags[parsed.country] || flags.UNK;
-
-      return flags.UNK;
+      const parsed = parsePhoneNumber(num);
+      return parsed?.country ? flags[parsed.country] || flags.UNK : flags.UNK;
     } catch {
       return flags.UNK;
     }
@@ -43,14 +33,20 @@ const handler = async (m, { conn }) => {
 
   for (let p of participants) {
     const jid = p.id;
-    const flag = getFlag(jid);
-    const tag = "@" + jid.split("@")[0];
+    const number = jid.split("@")[0]; // 🔥 fuerza número real SIEMPRE
+    const tag = "@" + number;
 
-    mentions.push(jid);
+    const flag = getFlag(jid);
+
     texto += `${flag} ${tag}\n`;
+    mentions.push(jid);
   }
 
-  await conn.sendMessage(m.chat, { text: texto, mentions }, { quoted: m });
+  await conn.sendMessage(m.chat, {
+    text: texto,
+    mentions
+  }, { quoted: m });
+
 };
 
 handler.command = ["todos"];
