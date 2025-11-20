@@ -20,12 +20,13 @@ let handler = async (m, { conn, args }) => {
   let _uptime = process.uptime() * 1000
   let uptime = clockString(_uptime)
 
+  // 👉 CAMBIADO: ahora agrega ".comando" en vez de "#comando"
   let categories = {}
   for (let plugin of Object.values(global.plugins)) {
     if (!plugin.help || !plugin.tags) continue
     for (let tag of plugin.tags) {
       if (!categories[tag]) categories[tag] = []
-      categories[tag].push(...plugin.help.map(cmd => `#${cmd}`))
+      categories[tag].push(...plugin.help.map(cmd => `.${cmd}`))
     }
   }
 
@@ -61,15 +62,8 @@ ${cmds.map(cmd => `⭒ ִֶָ७ ꯭🥤˙⋆｡ - ${cmd}`).join('\n')}
       contextInfo: {
         ...(global.rcanal?.contextInfo || {}),
         mentionedJid: [userId]
-      },
-
-      buttons: [
-        {
-          buttonId: 'btn_creador',
-          buttonText: { displayText: '👑 Hernández.xyz' },
-          type: 1
-        }
-      ]
+      }
+      // ❌ Botón eliminado
     },
     { quoted: m }
   )
