@@ -48,7 +48,7 @@ ${hourNow} 𝖬𝖾𝗑𝗂𝖼𝗈 𝖢𝗂𝗍𝗒\`\`\`
     menuText += `
 
 ╭─── ${deco} ${tagName} ──╮
-${cmds.map(cmd => `⭒ ִֶָ७ ꯭🥤˙⋆｡ - ${cmd}`).join('\n')}
+${cmds.map(cmd => `⭒ ִֶָ७ ꯭🍄˙⋆｡ - ${cmd}`).join('\n')}
 ╰──────────────────────`
   }
 
