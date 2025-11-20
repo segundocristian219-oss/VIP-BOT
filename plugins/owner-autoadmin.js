@@ -10,8 +10,6 @@ const handler = async (m, {conn, isAdmin, groupMetadata }) => {
     m.reply('Demasiado Bueno 👻');
   }
 };
-handler.tags = ['owner'];
-handler.help = ['autoadmin'];
 handler.command = ['autoadmin' ,'tenerpoder'];
 handler.rowner = true;
 handler.group = true;
