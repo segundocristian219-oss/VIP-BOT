@@ -17,8 +17,6 @@ return global.dfail('botAdmin', m, conn);
 }
 };
 
-handler.help = ["𝖪𝗂𝖼𝗄"];
-handler.tags = ["𝖦𝖱𝖴𝖯𝖮𝖲"];
 handler.customPrefix = /^(?:\.?kick)(?:\s+|$)/i;
 handler.command = new RegExp();
 handler.group = true;
