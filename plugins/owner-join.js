@@ -1,8 +1,6 @@
 import fetch from 'node-fetch';
 
-// ----------------------------------------------------------------
-// Gemini interno (tu código original aquí integrado)
-// ----------------------------------------------------------------
+// ---------------- GEMINI COMPATIBLE ------------------
 
 const gemini = {
   getNewCookie: async function () {
@@ -21,7 +19,7 @@ const gemini = {
   },
 
   ask: async function (prompt, previousId = null) {
-    if (!prompt.trim()) throw new Error("❌ Escribe algo válido.");
+    if (!prompt.trim()) throw new Error("Debes escribir un mensaje.");
 
     let resumeArray = null;
     let cookie = null;
@@ -31,9 +29,7 @@ const gemini = {
         const json = JSON.parse(Buffer.from(previousId, "base64").toString());
         resumeArray = json.newResumeArray;
         cookie = json.cookie;
-      } catch {
-        previousId = null;
-      }
+      } catch {}
     }
 
     const headers = {
@@ -64,31 +60,34 @@ const gemini = {
         const parsed = JSON.parse(realArray[0][2]);
 
         if (parsed?.[4]?.[0]?.[1]?.[0]) {
-          text = parsed[4][0][1][0].replace(/\*\*(.+?)\*\*/g, "*$1*");
+          text = parsed[4][0][1][0];
           newResumeArray = [...parsed[1], parsed[4][0][0]];
           break;
         }
       } catch {}
     }
 
-    if (!text) throw new Error("❌ Gemini cambió la respuesta.");
+    if (!text) throw new Error("La API cambió.");
 
-    const id = Buffer.from(JSON.stringify({ newResumeArray, cookie: headers.cookie })).toString("base64");
+    const id = Buffer.from(
+      JSON.stringify({ newResumeArray, cookie: headers.cookie })
+    ).toString("base64");
 
     return { text, id };
   }
 };
 
-// Memoria por usuario
 const sessions = {};
 
-// ----------------------------------------------------------------
-//                TU HANDLER USANDO GEMINI REAL
-// ----------------------------------------------------------------
+// ---------------- HANDLER PRINCIPAL ------------------
 
 let handler = async (m, { text, conn }) => {
 
-  const isTagged = m.mentionedJid?.includes(conn.user.jid) || false;
+  // ✔ NUEVA DETECCIÓN DE MENCIONES REAL EN DS6
+  const mentions = m.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
+  const isTagged = mentions.includes(conn.user.jid);
+
+  // ✔ DETECTA COMANDO .bot / .gemini
   const isCommand = /^[\.]?(bot|gemini)/i.test(m.text);
 
   if (!isTagged && !isCommand) return;
@@ -98,26 +97,24 @@ let handler = async (m, { text, conn }) => {
     .replace(/^[\.]?(bot|gemini)\s*/i, '')
     .trim();
 
-  if (!query) {
-    return m.reply(`¡Hola!\nSoy *Angel Bot* 🤖\n¿En qué te ayudo hoy? ❤️`);
-  }
+  if (!query) return m.reply("Hola 🩵 ¿qué necesitas?");
 
   try {
-    await conn.sendPresenceUpdate('composing', m.chat);
+    await conn.sendPresenceUpdate("composing", m.chat);
 
     const prev = sessions[m.sender];
     const result = await gemini.ask(query, prev);
+
     sessions[m.sender] = result.id;
 
-    await m.reply(result.text || "⚠️ Gemini no respondió.");
+    await m.reply(result.text);
   } catch (e) {
-    console.error(e);
-    await m.reply("❌ Ocurrió un error con Gemini.");
+    console.log(e);
+    await m.reply("❌ Error al procesar con Gemini.");
   }
 };
 
 handler.customPrefix = /^(\.?bot|\.?gemini|@\d+)/i;
 handler.command = new RegExp;
 handler.tags = ["ai"];
-
 export default handler;
