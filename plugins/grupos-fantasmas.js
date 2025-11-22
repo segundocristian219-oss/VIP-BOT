@@ -1,42 +1,19 @@
-import pkg from '@whiskeysockets/baileys'
-const { delay } = pkg
+// =========================================================
+//   SISTEMA COMPLETO DE DETECCIÓN DE FANTASMAS (72 HORAS)
+//   - Registro de actividad (messageHandler)
+//   - Comando .fantasmas / .fankick
+//   - Auto-revisión cada 24h (si el chat activa autoFantasma)
+// =========================================================
 
-let listaInactivos = {}
-
-async function actualizarParticipantes(conn, chatId) {
-    let meta = await conn.groupMetadata(chatId)
-    let participantes = meta.participants.map(v => v.id)
-
-    if (!listaInactivos[chatId]) listaInactivos[chatId] = {}
-
-    for (let user of participantes) {
-        if (!listaInactivos[chatId][user]) {
-            listaInactivos[chatId][user] = {
-                lastMessage: 0
-            }
-        }
-    }
-}
-
-async function limpiarInactivos(chatId) {
-    let ahora = Date.now()
-    let ttl = 72 * 60 * 60 * 1000
-
-    for (let user in listaInactivos[chatId]) {
-        let data = listaInactivos[chatId][user]
-        if (data.lastMessage !== 0 && ahora - data.lastMessage < ttl) {
-            delete listaInactivos[chatId][user]
-        }
-    }
-}
-
-let messageHandler = async (m, { conn }) => {
+// ====================================
+//  1. REGISTRADOR DE ACTIVIDAD
+// ====================================
+export async function messageHandler(m, { conn }) {
     if (!m.isGroup) return
     if (!m.sender) return
     if (m.sender === conn.user.jid) return
 
-    let tipo = m.message ? Object.keys(m.message)[0] : null
-    const validMessages = [
+    const tiposValidos = [
         "conversation",
         "extendedTextMessage",
         "imageMessage",
@@ -46,29 +23,30 @@ let messageHandler = async (m, { conn }) => {
         "documentMessage"
     ]
 
-    if (!validMessages.includes(tipo)) return
+    let tipo = m.message ? Object.keys(m.message)[0] : null
+    if (!tiposValidos.includes(tipo)) return
 
-    if (!global.db.data.users[m.sender]) global.db.data.users[m.sender] = {}
-    let userData = global.db.data.users[m.sender]
+    // Crear usuario si no existe
+    if (!global.db.data.users[m.sender])
+        global.db.data.users[m.sender] = {}
 
-    if (!userData.groups) userData.groups = {}
-    if (!userData.groups[m.chat]) userData.groups[m.chat] = {}
+    let user = global.db.data.users[m.sender]
 
-    userData.groups[m.chat].lastMessage = Date.now()
-    global.db.data.users[m.sender] = userData
+    // Crear grupos si no existe
+    if (!user.groups) user.groups = {}
+    if (!user.groups[m.chat]) user.groups[m.chat] = {}
 
-    if (!listaInactivos[m.chat]) listaInactivos[m.chat] = {}
-
-    await actualizarParticipantes(conn, m.chat)
-
-    if (listaInactivos[m.chat][m.sender]) {
-        listaInactivos[m.chat][m.sender].lastMessage = Date.now()
-    }
-
-    await limpiarInactivos(m.chat)
+    // Guardar la hora del último mensaje
+    user.groups[m.chat].lastMessage = Date.now()
 }
 
+
+
+// ====================================
+//  2. COMANDO .FANTASMAS / .FANKICK
+// ====================================
 let handler = async (m, { conn, participants, command }) => {
+
     const HORAS = 72
     const INACTIVIDAD = HORAS * 60 * 60 * 1000
     const ahora = Date.now()
@@ -77,113 +55,125 @@ let handler = async (m, { conn, participants, command }) => {
     let fantasmas = []
 
     for (let usuario of miembros) {
+
+        // Ignorar al bot
         if (usuario === conn.user.jid) continue
+
+        // Ignorar admins
         let p = participants.find(u => u.id === usuario)
         if (p?.admin || p?.isAdmin || p?.isSuperAdmin) continue
 
         let dataUser = global.db.data.users[usuario]
         let lastMsg = dataUser?.groups?.[m.chat]?.lastMessage || 0
 
-        let enLista = listaInactivos[m.chat]?.[usuario]?.lastMessage || 0
-
-        if (!lastMsg && !enLista) {
-            fantasmas.push(usuario)
-            continue
-        }
-
-        let ultimo = lastMsg || enLista
-
-        if (ahora - ultimo >= INACTIVIDAD) {
+        // Nunca habló → fantasma
+        // O habló pero pasaron 72h
+        if (!lastMsg || ahora - lastMsg >= INACTIVIDAD) {
             fantasmas.push(usuario)
         }
     }
 
     if (fantasmas.length === 0) {
-        return conn.reply(m.chat, "No hay fantasmas en este grupo.", m)
+        return conn.reply(m.chat, "✨ No hay fantasmas en este grupo.", m)
     }
 
-    if (command === 'fankick') {
-        await conn.groupParticipantsUpdate(m.chat, fantasmas, 'remove')
+    // Expulsar fantasmas
+    if (command === "fankick") {
+        await conn.groupParticipantsUpdate(m.chat, fantasmas, "remove")
         return conn.reply(
             m.chat,
-            `Fantasmas eliminados:\n${fantasmas.map(v => '@' + v.split('@')[0]).join('\n')}`,
+            `🔥 *Fantasmas eliminados:*\n${fantasmas.map(v => '@' + v.split('@')[0]).join('\n')}`,
             null,
             { mentions: fantasmas }
         )
     }
 
-    let mensaje =
-`[ INACTIVIDAD DE 72 HORAS ]
+    // Mostrar lista
+    let msg = `
+👻 *FANTASMAS DETECTADOS (72H)*
 
 Grupo: ${await conn.getName(m.chat)}
 Miembros: ${miembros.length}
 
-Fantasmas detectados:
 ${fantasmas.map(v => '👻 @' + v.split('@')[0]).join('\n')}
 
-Usa .fankick para eliminarlos.`
-
-    conn.reply(m.chat, mensaje, null, { mentions: fantasmas })
+Usa *.fankick* para eliminarlos.
+`
+    conn.reply(m.chat, msg, null, { mentions: fantasmas })
 }
 
+
+
+// Handler propiedades
 handler.help = ['fantasmas', 'fankick']
 handler.tags = ['group']
-handler.command = /^(fantasmas|verfantasmas|sider|fankick)$/i
+handler.command = /^(fantasmas|sider|verfantasmas|fankick)$/i
 handler.admin = true
 
-global.fantasmaAutoCheck = global.fantasmaAutoCheck || {}
+export default handler
 
-setInterval(async () => {
-    try {
-        let chats = Object.keys(global.db.data.chats || {})
 
-        for (let id of chats) {
-            if (!global.db.data.chats[id]?.autoFantasma) continue
 
-            let metadata = await conn.groupMetadata(id).catch(() => null)
-            if (!metadata) continue
+// ====================================
+//  3. AUTO-REVISIÓN CADA 24 HORAS
+// ====================================
 
-            let participants = metadata.participants
-            const HORAS = 72
-            const INACTIVIDAD = HORAS * 60 * 60 * 1000
-            const ahora = Date.now()
+global.autoCheckRun = global.autoCheckRun || false
 
-            let miembros = participants.map(v => v.id)
-            let fantasmas = []
+// Evita que se duplique
+if (!global.autoCheckRun) {
 
-            for (let usuario of miembros) {
-                if (usuario === conn.user.jid) continue
-                let p = participants.find(u => u.id === usuario)
-                if (p?.admin || p?.isAdmin || p?.isSuperAdmin) continue
+    global.autoCheckRun = true
 
-                let dataUser = global.db.data.users[usuario]
-                let lastMsg = dataUser?.groups?.[id]?.lastMessage || 0
-                let enLista = listaInactivos[id]?.[usuario]?.lastMessage || 0
+    setInterval(async () => {
+        try {
+            let chats = Object.keys(global.db.data.chats || {})
 
-                let ultimo = lastMsg || enLista
+            for (let id of chats) {
+                let chat = global.db.data.chats[id]
+                if (!chat || !chat.autoFantasma) continue
 
-                if (!ultimo || ahora - ultimo >= INACTIVIDAD) {
-                    fantasmas.push(usuario)
+                let metadata = await conn.groupMetadata(id).catch(() => null)
+                if (!metadata) continue
+
+                let participants = metadata.participants
+
+                const HORAS = 72
+                const INACTIVIDAD = HORAS * 60 * 60 * 1000
+                const ahora = Date.now()
+
+                let fantasmas = []
+
+                for (let user of participants.map(v => v.id)) {
+
+                    if (user === conn.user.jid) continue
+
+                    let p = participants.find(x => x.id === user)
+                    if (p?.admin || p?.isAdmin || p?.isSuperAdmin) continue
+
+                    let dataUser = global.db.data.users[user]
+                    let lastMsg = dataUser?.groups?.[id]?.lastMessage || 0
+
+                    if (!lastMsg || ahora - lastMsg >= INACTIVIDAD) {
+                        fantasmas.push(user)
+                    }
                 }
-            }
 
-            if (fantasmas.length === 0) continue
+                if (fantasmas.length === 0) continue
 
-            let mensaje =
-`[ AUTO-REVISIÓN DE FANTASMAS ]
+                let msg = `
+👻 *AUTO-REVISIÓN DE FANTASMAS (72H)*
 
 Grupo: ${await conn.getName(id)}
 
-Fantasmas detectados:
+Fantasmas encontrados:
 ${fantasmas.map(v => '👻 @' + v.split('@')[0]).join('\n')}
 
-Usa .fankick si deseas eliminarlos.`
+Usa *.fankick* si quieres limpiar.`
+                
+                conn.sendMessage(id, { text: msg, mentions: fantasmas })
+            }
 
-            conn.sendMessage(id, { text: mensaje, mentions: fantasmas })
-        }
-
-    } catch (e) {}
-}, 24 * 60 * 60 * 1000)
-
-export { messageHandler }
-export default handler
+        } catch (e) {}
+    }, 24 * 60 * 60 * 1000) // Cada 24h
+}
