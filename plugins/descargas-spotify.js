@@ -1,48 +1,70 @@
-import axios from 'axios';
+import fetch from 'node-fetch';
 
-const handler = async (m, { conn, text }) => {
-  if (!text) return m.reply(`*💽 Ingresa el nombre de alguna canción en Spotify*`);
+const handler = async (m, { args, conn, command, prefix }) => {
+  if (!args[0]) {
+    let ejemplos = ['Adele Hello', 'Sia Unstoppable', 'Maroon 5 Memories', 'Karol G Provenza', 'Natalia Jiménez Creo en mí'];
+    let random = ejemplos[Math.floor(Math.random() * ejemplos.length)];
+    return conn.reply(m.chat, `${emoji} Ejemplo de uso: ${(prefix || '.') + command} ${random}`, m, rcanal);
+  }
+
+  await conn.sendMessage(m.chat, { react: { text: '⏱', key: m.key } });
+
+  const query = encodeURIComponent(args.join(' '));
+  const searchUrl = `https://api.delirius.store/search/spotify?q=${query}`;
 
   try {
-    await conn.sendMessage(m.chat, { react: { text: '🕒', key: m.key }});
+    const res = await fetch(searchUrl);
+    const json = await res.json();
 
-    const apikey = 'Destroy-xyz';
-    const baseUrl = 'https://api-adonix.ultraplus.click';
-    const res = await axios.get(`${baseUrl}/download/spotify?apikey=${apikey}&q=${encodeURIComponent(text)}`);
-
-    const data = res.data;
-
-    if (!data) return m.reply('❌ La API no respondió correctamente.');
-    if (!data.result || data.result.length === 0) return m.reply(`❌ No se encontraron resultados para "${text}" en Spotify.`);
-
-    const song = data.result[0];
-
-    const info = `> *SPOTIFY DOWNLOADER*\n\n🎵 *Título:* ${song.title}\n🎤 *Artista:* ${song.artist}\n🕒 *Duración:* ${song.duration}`;
-
-    if (song.thumbnail) {
-      await conn.sendFile(m.chat, song.thumbnail, 'imagen.jpg', info, m);
-    } else {
-      await conn.sendMessage(m.chat, { text: info });
+    if (!json.status || !json.data || json.data.length === 0) {
+      return m.reply('❌ No encontré la canción que estás buscando.', m);
     }
 
-    if (!song.url) {
-      return m.reply('❌ La canción seleccionada no tiene audio disponible.');
+    const track = json.data[0];
+    if (!track || !track.url) {
+      return m.reply('⚠️ Resultado inválido de la API.', m);
     }
 
-    await conn.sendMessage(m.chat, { audio: { url: song.url }, fileName: 'audio.mp3', mimetype: 'audio/mpeg', quoted: m });
-    await conn.sendMessage(m.chat, { react: { text: '✅', key: m.key }});
+    const downloadUrl = `https://api.delirius.store/download/spotifydl?url=${encodeURIComponent(track.url)}`;
+    const dlRes = await fetch(downloadUrl).then(r => r.json()).catch(() => null);
+
+    const audioUrl = dlRes?.data?.url;
+    if (!audioUrl || audioUrl.includes('undefined')) {
+      return m.reply('⚠️ Error al obtener el enlace de descarga.', m);
+    }
+
+    const caption = `
+╔═══『 SPOTIFY 🎶 』
+║ ✦  Título: ${track.title}
+║ ✦  Artista: ${track.artist}
+║ ✦  Álbum: ${track.album}
+║ ✦  Duración: ${track.duration}
+║ ✦  Popularidad: ${track.popularity}
+║ ✦  Publicado: ${track.publish}
+║ ✦  Link: ${track.url}
+╚═════════════════╝`;
+
+    await conn.sendMessage(m.chat, {
+      image: { url: track.image },
+      caption
+    }, { quoted: m });
+
+    await conn.sendMessage(m.chat, {
+      audio: { url: audioUrl },
+      mimetype: 'audio/mpeg',
+      fileName: `${track.title}.mp3`
+    }, { quoted: m });
+
+    await conn.sendMessage(m.chat, { react: { text: '✅', key: m.key } });
 
   } catch (e) {
-    console.log(e.response?.data || e.message || e);
-    if (e.response?.data) {
-      await conn.reply(m.chat, `❌ Error en la API: ${JSON.stringify(e.response.data)}`, m);
-    } else {
-      await conn.reply(m.chat, '❌ Ocurrió un error inesperado, intenta nuevamente.', m);
-    }
+    console.error(e);
+    m.reply('⚠️ Ocurrió un error al buscar o descargar la canción.');
   }
 };
 
-handler.tags = ['downloader'];
-handler.help = ['spotify'];
+handler.help = ['spotify <canción>'];
+handler.tags = ['busqueda', 'descargas'];
 handler.command = ['spotify'];
+
 export default handler;
