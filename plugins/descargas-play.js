@@ -18,7 +18,6 @@ const MAX_CONCURRENT = Number(process.env.MAX_CONCURRENT) || 3
 const MAX_FILE_MB = Number(process.env.MAX_FILE_MB) || 99
 const DOWNLOAD_TIMEOUT = Number(process.env.DOWNLOAD_TIMEOUT) || 60000
 const MAX_RETRIES = 3
-const PROGRESS_STEP = 0.05
 
 let activeDownloads = 0
 const downloadQueue = []
@@ -61,30 +60,20 @@ async function getSkyApiUrl(videoUrl, format, timeout=20000, retries=2){
       const {data} = await axios.get(`${SKY_BASE}/api/download/yt.php`,{params:{url:videoUrl,format},headers:{Authorization:`Bearer ${SKY_KEY}`},timeout})
       const url = data?.data?.audio || data?.data?.video || data?.audio || data?.video || data?.url || data?.download
       if(url?.startsWith("http")) return url
-    } catch(e){ console.error("Sky API try", i, e?.message || e) }
+    } catch(e){}
     if(i<retries) await wait(500*(i+1))
   }
   return null
 }
 
 async function probeRemote(url, timeout=10000){
-  try{ const res = await axios.head(url,{timeout,maxRedirects:5}); return {ok:true,size:Number(res.headers["content-length"]||0),headers:res.headers} } catch (e) { return {ok:false} }
+  try{ const res = await axios.head(url,{timeout,maxRedirects:5}); return {ok:true,size:Number(res.headers["content-length"]||0),headers:res.headers} }
+  catch { return {ok:false} }
 }
 
-async function downloadWithProgress(url, filePath, signal, start=0, onProgress=null){
+async function downloadWithProgress(url, filePath, signal, start=0){
   const headers = start?{Range:`bytes=${start}-`}:{}
   const res = await axios.get(url,{responseType:"stream",timeout:DOWNLOAD_TIMEOUT,headers,signal,maxRedirects:5})
-  const totalSize = Number(res.headers["content-length"] || 0) + start
-  let downloaded = start
-  let lastPercent = 0
-  res.data.on("data",chunk=>{
-    downloaded+=chunk.length
-    const percent = Math.floor(downloaded/totalSize/PROGRESS_STEP)*PROGRESS_STEP
-    if(onProgress && percent>lastPercent){
-      lastPercent = percent
-      try { onProgress(Math.min(percent,1)) } catch {}
-    }
-  })
   await streamPipe(res.data, fs.createWriteStream(filePath, {flags:start?"a":"w"}))
   return filePath
 }
@@ -98,7 +87,7 @@ async function convertToMp3(inputFile){
 
 function ensureTask(videoUrl){ if(!downloadTasks[videoUrl]) downloadTasks[videoUrl]={}; return downloadTasks[videoUrl] }
 
-async function startDownload(videoUrl,key,mediaUrl,forceRestart=false,retryCount=0,onProgress=null){
+async function startDownload(videoUrl,key,mediaUrl,forceRestart=false,retryCount=0){
   const tasks = ensureTask(videoUrl)
   if(tasks[key]?.status==="downloading") return tasks[key].promise
   if(!forceRestart && tasks[key]?.status==="done") return tasks[key].file
@@ -111,15 +100,14 @@ async function startDownload(videoUrl,key,mediaUrl,forceRestart=false,retryCount
   info.promise = (async ()=>{
     try{
       if(forceRestart) safeUnlink(tasks[key]?.file)
-      const start = 0
       const probe = await probeRemote(mediaUrl)
       const expectedSize = probe.ok && probe.size
-      await queueDownload(()=>downloadWithProgress(mediaUrl,file,controller.signal,start,onProgress))
+      await queueDownload(()=>downloadWithProgress(mediaUrl,file,controller.signal,0))
       if(key.startsWith("audio") && path.extname(file)!==".mp3") info.file = await convertToMp3(file)
       else info.file = file
       if(!validCache(info.file,expectedSize)){
         safeUnlink(info.file)
-        if(retryCount<MAX_RETRIES) return await startDownload(videoUrl,key,mediaUrl,true,retryCount+1,onProgress)
+        if(retryCount<MAX_RETRIES) return await startDownload(videoUrl,key,mediaUrl,true,retryCount+1)
         throw new Error("Archivo inválido")
       }
       if(fileSizeMB(info.file)>MAX_FILE_MB){ safeUnlink(info.file); throw new Error("Archivo demasiado grande") }
@@ -128,7 +116,7 @@ async function startDownload(videoUrl,key,mediaUrl,forceRestart=false,retryCount
     } catch(err){
       info.status="error"
       safeUnlink(info.file)
-      if(retryCount<MAX_RETRIES) return await startDownload(videoUrl,key,mediaUrl,true,retryCount+1,onProgress)
+      if(retryCount<MAX_RETRIES) return await startDownload(videoUrl,key,mediaUrl,true,retryCount+1)
       throw err
     }
   })()
@@ -172,24 +160,14 @@ async function handleDownload(conn,job,choice){
   const probe = await probeRemote(mediaUrl)
   if(!probe.ok || (probe.size && probe.size/(1024*1024)>MAX_FILE_MB)) return sendError(conn,job.chatId,`Archivo muy grande o inaccesible`, job.commandMsg)
 
-  const msgTypeText = type === "audio" ? (isDoc ? "Audio en documento" : "Audio") : (isDoc ? "Vídeo en documento" : "Vídeo")
-  await sendStatus(conn, job.chatId, `⏳ Descargando ${msgTypeText}...`, job.commandMsg)
-
   try{
-    const f = await startDownload(id,key,mediaUrl,true,0,(percent)=>{
-      const pct = Math.floor(percent*100)
-      if(job.lastPct !== pct && pct%10===0){
-        job.lastPct = pct
-        try{ conn.sendMessage(job.chatId,{text:`⬇️ ${msgTypeText}: ${pct}%`},{quoted:job.commandMsg}) } catch {}
-      }
-    })
+    const f = await startDownload(id,key,mediaUrl,true,0)
     cache[id]=cache[id]||{timestamp:Date.now(),files:{}}
     cache[id].files[key]=f
     cache[id].timestamp=Date.now()
     saveCache()
     await sendFileToChat(conn,job.chatId,f,job.title,isDoc,type,job.commandMsg)
   } catch(err){
-    console.error("Download error:", err?.message || err)
     await sendError(conn, job.chatId, `${err?.message || "Error al descargar"}`, job.commandMsg)
   }
 }
@@ -242,9 +220,27 @@ const handler = async(msg,{conn,text,command})=>{
         try{ await conn.sendMessage(job.chatId,{text:"❌ No autorizado."},{quoted:job.commandMsg}) } catch {}
         continue
       }
+
       if(job.downloading) continue
       job.downloading = true
-      try{ await handleDownload(conn, job, emoji) } finally { job.downloading = false }
+
+      const msgTypeText =
+        emoji === "👍" ? "Audio" :
+        emoji === "❤️" ? "Vídeo" :
+        emoji === "📄" ? "Audio en documento" :
+        "Vídeo en documento"
+
+      try {
+        await conn.sendMessage(job.chatId, {
+          text: `⏳ Descargando ${msgTypeText}...`
+        }, { quoted: job.commandMsg })
+      } catch {}
+
+      try {
+        await handleDownload(conn, job, emoji)
+      } finally {
+        job.downloading = false
+      }
     }
   }
   conn.ev.on("messages.upsert", conn._playListener)
@@ -254,7 +250,7 @@ const pending = {}
 function pendingManagerAdd(id, data){ pending[id]=data; setTimeout(()=>delete pending[id],10*60*1000) }
 function pendingManagerGet(id){ return pending[id] }
 
-handler.help = ["play"];
-handler.tags = ["descargas"];
-handler.command=["play","clean"]
+handler.help = ["play"]
+handler.tags = ["descargas"]
+handler.command = ["play","clean"]
 export default handler
