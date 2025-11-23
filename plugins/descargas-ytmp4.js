@@ -1,133 +1,214 @@
 import axios from "axios";
-import fs from "fs";
-import path from "path";
-import crypto from "crypto";
-import ffmpeg from "fluent-ffmpeg";
-import { promisify } from "util";
-import { pipeline } from "stream";
 
-const streamPipe = promisify(pipeline);
-const TMP_DIR = path.join(process.cwd(), "tmp");
-if (!fs.existsSync(TMP_DIR)) fs.mkdirSync(TMP_DIR, { recursive: true });
+const API_BASE = process.env.API_BASE || "https://api-sky.ultraplus.click";
+const API_KEY  = process.env.API_KEY  || "Russellxz";
 
-const SKY_BASE = process.env.API_BASE || "https://api-sky.ultraplus.click";
-const SKY_KEY  = process.env.API_KEY  || "Russellxz";
-const MAX_FILE_MB = 99;
+const AXIOS_TIMEOUT = 0;
+axios.defaults.timeout = AXIOS_TIMEOUT;
+axios.defaults.maxBodyLength = Infinity;
+axios.defaults.maxContentLength = Infinity;
 
-function safeUnlink(file){ try{ fs.existsSync(file)&&fs.unlinkSync(file) }catch{} }
-
-async function convertToMp3(inputFile){
-    const outFile = inputFile.replace(path.extname(inputFile),".mp3");
-    await new Promise((resolve,reject)=> ffmpeg(inputFile)
-        .audioCodec("libmp3lame")
-        .audioBitrate("128k")
-        .format("mp3")
-        .on("end",resolve)
-        .on("error",reject)
-        .save(outFile));
-    safeUnlink(inputFile);
-    return outFile;
+function isYouTube(u) {
+  return /^https?:\/\//i.test(u) && /(youtube\.com|youtu\.be|music\.youtube\.com)/i.test(u);
 }
 
-function isYouTube(url){ return /^https?:\/\//i.test(url) && /(youtube\.com|youtu\.be)/i.test(url) }
+function fmtDur(s) {
+  const n = Number(s || 0);
+  const h = Math.floor(n / 3600);
+  const m = Math.floor((n % 3600) / 60);
+  const sec = n % 60;
+  return (h ? `${h}:` : "") + `${m.toString().padStart(2,"0")}:${sec.toString().padStart(2,"0")}`;
+}
 
-async function getSkyMedia(videoUrl, format){
-    const endpoints = ["/api/download/yt.php","/api/download/yt.js"];
-    for(const ep of endpoints){
-        try{
-            const {data} = await axios.get(`${SKY_BASE}${ep}`,{
-                params:{url:videoUrl,format},
-                headers:{Authorization:`Bearer ${SKY_KEY}`},
-                validateStatus:()=>true
-            });
-            const url = data?.data?.video || data?.data?.audio || data?.video || data?.audio;
-            if(url) return { mediaUrl: url, meta: data.data };
-        }catch{}
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+const pendingYTV = Object.create(null);
+
+async function callSkyYtVideo(url){
+  const endpoints = ["/api/download/yt.js", "/api/download/yt.php"];
+  const headers = {
+    Authorization: `Bearer ${API_KEY}`,
+    "X-API-Key": API_KEY,
+    Accept: "application/json"
+  };
+  const params = { url, format: "video" };
+
+  let lastErr = null;
+
+  for (const ep of endpoints) {
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const r = await axios.get(`${API_BASE}${ep}`, {
+          params,
+          headers,
+          timeout: AXIOS_TIMEOUT,
+          maxRedirects: 5,
+          validateStatus: () => true
+        });
+
+        if (r.status >= 500 || r.status === 429 || r.status === 403) {
+          lastErr = new Error(`HTTP ${r.status}${r.data?.error ? ` - ${r.data.error}` : ""}`);
+          await sleep(1000 * attempt);
+          continue;
+        }
+
+        if (r.status !== 200) {
+          lastErr = new Error(`HTTP ${r.status}`);
+          await sleep(1000 * attempt);
+          continue;
+        }
+
+        const ok = r.data && r.data.status === "true" && r.data.data;
+        if (!ok) {
+          lastErr = new Error(`API inválida: ${JSON.stringify(r.data)}`);
+          await sleep(1000 * attempt);
+          continue;
+        }
+
+        const d = r.data.data || {};
+        const mediaUrl = d.video || d.audio;
+        if (!mediaUrl) {
+          lastErr = new Error("El API no devolvió video.");
+          await sleep(1000 * attempt);
+          continue;
+        }
+
+        return { mediaUrl, meta: d };
+      } catch (e) {
+        lastErr = e;
+        await sleep(1000 * attempt);
+      }
     }
-    throw new Error("No se pudo obtener el media de Sky API");
+  }
+
+  throw lastErr || new Error("No se pudo obtener el video.");
 }
 
-async function sendFile(conn,chatId,filePath,title,type,isDoc,quoted){
-    if(!fs.existsSync(filePath)) return conn.sendMessage(chatId,{text:"❌ Archivo inválido."},{quoted});
-    const buffer = fs.readFileSync(filePath);
-    const msg = {};
-    if(isDoc) msg.document = buffer;
-    else if(type==="audio") msg.audio = buffer;
-    else msg.video = buffer;
-    const mimetype = type==="audio"?"audio/mpeg":"video/mp4";
-    const fileName = `${title}.${type==="audio"?"mp3":"mp4"}`;
-    await conn.sendMessage(chatId,{...msg,mimetype,fileName},{quoted});
-}
+const handler = async (msg, { conn, args, command }) => {
+  const jid  = msg.key.remoteJid;
+  const url  = (args.join(" ") || "").trim();
+  const pref = global.prefixes?.[0] || ".";
 
-async function handleDownload(conn,chatId,videoUrl,title,choice,quoted){
-    const map = {"👍":"audio","❤️":"video","📄":"audioDoc","📁":"videoDoc"};
-    const key = map[choice]; if(!key) return;
-    const type = key.startsWith("audio")?"audio":"video";
-    const isDoc = key.endsWith("Doc");
+  if (!url) {
+    return conn.sendMessage(jid, {
+      text: `✳️ *Usa:*\n${pref}${command} <url>\nEj: ${pref}${command} https://youtu.be/xxxxxx`
+    }, { quoted: msg });
+  }
+  if (!isYouTube(url)) {
+    return conn.sendMessage(jid, { text: "❌ *URL de YouTube inválida.*" }, { quoted: msg });
+  }
 
-    const { mediaUrl } = await getSkyMedia(videoUrl,type);
-    if(!mediaUrl) return conn.sendMessage(chatId,{text:`❌ No se obtuvo enlace de ${type}`},{quoted});
-
-    const fileExt = type==="audio"?"mp3":"mp4";
-    let tmpFile = path.join(TMP_DIR,`${crypto.randomUUID()}_${key}.${fileExt}`);
-
-    const { data } = await axios.get(mediaUrl,{responseType:"stream"});
-    await streamPipe(data,fs.createWriteStream(tmpFile));
-
-    if(type==="audio" && fileExt!=="mp3") tmpFile = await convertToMp3(tmpFile);
-
-    if(fs.existsSync(tmpFile) && fs.statSync(tmpFile).size/(1024*1024)>MAX_FILE_MB){
-        safeUnlink(tmpFile);
-        return conn.sendMessage(chatId,{text:"❌ Archivo muy grande"},{quoted});
-    }
-
-    await sendFile(conn,chatId,tmpFile,title,type,isDoc,quoted);
-}
-
-const handler = async(msg,{conn,args,command})=>{
-    const jid = msg.key.remoteJid;
-    const text = args.join(" ").trim();
-    const pref = global.prefixes?.[0]||".";
-
-    if(!text) return conn.sendMessage(jid,{text:`✳️ Usa:\n${pref}${command} <link>\nEj: ${pref}${command} https://youtu.be/xxxxxx`},{quoted:msg});
-    if(!isYouTube(text)) return conn.sendMessage(jid,{text:"❌ URL de YouTube inválida."},{quoted:msg});
+  try {
+    await conn.sendMessage(jid, { react: { text: "⏱️", key: msg.key } });
+    const { mediaUrl, meta } = await callSkyYtVideo(url);
+    const title = meta.title || "YouTube Video";
+    const dur   = meta.duration ? fmtDur(meta.duration) : "—";
+    const thumb = meta.thumbnail || "";
 
     const caption =
-`🎵 YouTube Link
-🌐 Link: ${text}
+`⚡ 𝗬𝗼𝘂𝗧𝘂𝗯𝗲 — 𝗩𝗶𝗱𝗲𝗼
 
-📥 Reacciona para descargar:
-☛ 👍 Audio MP3
-☛ ❤️ Video MP4
-☛ 📄 Audio Doc
-☛ 📁 Video Doc`;
+Elige cómo enviarlo:
+👍 𝗩𝗶𝗱𝗲𝗼 (normal)
+❤️ 𝗩𝗶𝗱𝗲𝗼 𝗰𝗼𝗺𝗼 𝗱𝗼𝗰𝘂𝗺𝗲𝗻𝘁𝗼
+— 𝗼 responde: 1 = video · 2 = documento
 
-    const preview = await conn.sendMessage(jid,{image:{url:"https://i.imgur.com/8k1e1kK.png"},caption},{quoted:msg});
+✦ 𝗧𝗶́𝘁𝘂𝗹𝗼: ${title}
+✦ 𝗗𝘂𝗿𝗮𝗰𝗶𝗼́𝗻: ${dur}
+✦ 𝗦𝗼𝘂𝗿𝗰𝗲: api-sky.ultraplus.click
+────────────
+`;
 
-    pendingManagerAdd(preview.key.id,{chatId:jid,videoUrl:text,title:"YouTube Video",commandMsg:msg,sender:msg.key.participant||msg.participant,downloading:false});
+    let selectorMsg;
+    if (thumb) {
+      selectorMsg = await conn.sendMessage(jid, { image: { url: thumb }, caption }, { quoted: msg });
+    } else {
+      selectorMsg = await conn.sendMessage(jid, { text: caption }, { quoted: msg });
+    }
 
-    if(conn._playListener) conn.ev.off("messages.upsert",conn._playListener);
-    conn._playListener = async ev=>{
-        for(const m of ev.messages||[]){
-            const react = m.message?.reactionMessage; if(!react) continue;
-            const { key:reactKey, text:emoji, sender } = react;
-            const job = pendingManagerGet(reactKey?.id);
-            if(!job || !["👍","❤️","📄","📁"].includes(emoji)) continue;
-            if((sender||m.key.participant)!==job.sender){ await conn.sendMessage(job.chatId,{text:"❌ No autorizado."},{quoted:job.commandMsg}); continue; }
-            if(job.downloading) continue;
-            job.downloading=true;
-            try{
-                await conn.sendMessage(job.chatId,{text:`⏳ Descargando...`},{quoted:job.commandMsg});
-                await handleDownload(conn,job.chatId,job.videoUrl,job.title,emoji,job.commandMsg);
-            } finally{ job.downloading=false }
-        }
+    pendingYTV[selectorMsg.key.id] = {
+      chatId: jid,
+      mediaUrl,
+      title,
+      baseMsg: msg
     };
-    conn.ev.on("messages.upsert",conn._playListener);
+
+    await conn.sendMessage(jid, { react: { text: "✅", key: msg.key } });
+
+    if (!conn._ytvListener) {
+      conn._ytvListener = true;
+      conn.ev.on("messages.upsert", async (ev) => {
+        for (const m of ev.messages) {
+          try {
+            if (m.message?.reactionMessage) {
+              const { key: reactedKey, text: emoji } = m.message.reactionMessage;
+              const job = pendingYTV[reactedKey.id];
+              if (job) {
+                const asDoc = emoji === "❤️";
+                await sendVideo(conn, job, asDoc, m);
+                delete pendingYTV[reactedKey.id];
+              }
+            }
+            const ctx = m.message?.extendedTextMessage?.contextInfo;
+            const replyTo = ctx?.stanzaId;
+            const txt = (m.message?.conversation || m.message?.extendedTextMessage?.text || "").trim().toLowerCase();
+            if (replyTo && pendingYTV[replyTo]) {
+              const job = pendingYTV[replyTo];
+              if (txt === "1" || txt === "2") {
+                const asDoc = txt === "2";
+                await sendVideo(conn, job, asDoc, m);
+                delete pendingYTV[replyTo];
+              } else if (txt) {
+                await conn.sendMessage(job.chatId, {
+                  text: "⚠️ Responde con *1* (video) o *2* (documento), o reacciona con 👍 / ❤️."
+                }, { quoted: job.baseMsg });
+              }
+            }
+          } catch (e) {
+            console.error("ytmp4 listener error:", e);
+          }
+        }
+      });
+    }
+
+  } catch (err) {
+    console.error("ytmp4 error:", err?.message || err);
+    try {
+      await conn.sendMessage(jid, { text: `❌ ${err?.message || "Error procesando el enlace."}` }, { quoted: msg });
+      await conn.sendMessage(jid, { react: { text: "❌", key: msg.key } });
+    } catch {}
+  }
+};
+
+async function sendVideo(conn, job, asDocument, triggerMsg){
+  const { chatId, mediaUrl, title, baseMsg } = job;
+
+  await conn.sendMessage(chatId, { react: { text: asDocument ? "📁" : "🎬", key: triggerMsg.key } });
+  await conn.sendMessage(chatId, { text: `⏳ Enviando ${asDocument ? "como documento" : "video"}…` }, { quoted: baseMsg });
+
+  const caption =
+`⚡ 𝗬𝗼𝘂𝗧𝘂𝗯𝗲 𝗩𝗶𝗱𝗲𝗼 — 𝗟𝗶𝘀𝘁𝗼
+
+✦ 𝗧𝗶́𝘁𝘂𝗹𝗼: ${title}
+✦ 𝗦𝗼𝘂𝗿𝗰𝗲: api-sky.ultraplus.click
+`;
+
+  if (asDocument) {
+    await conn.sendMessage(chatId, {
+      document: { url: mediaUrl },
+      mimetype: "video/mp4",
+      fileName: `${title}.mp4`,
+      caption
+    }, { quoted: baseMsg });
+  } else {
+    await conn.sendMessage(chatId, {
+      video: { url: mediaUrl },
+      mimetype: "video/mp4",
+      caption
+    }, { quoted: baseMsg });
+  }
+
+  await conn.sendMessage(chatId, { react: { text: "✅", key: triggerMsg.key } });
 }
 
-const pending = {};
-function pendingManagerAdd(id,data){ pending[id]=data; setTimeout(()=>delete pending[id],10*60*1000) }
-function pendingManagerGet(id){ return pending[id] }
-
-handler.command = ["ytlink","ytmp4"];
+handler.command = ["ytmp4","ytv"];
 export default handler;
