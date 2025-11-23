@@ -6,6 +6,7 @@ import ffmpeg from "fluent-ffmpeg"
 import { promisify } from "util"
 import { pipeline } from "stream"
 import crypto from "crypto"
+import NodeID3 from "node-id3"
 
 const streamPipe = promisify(pipeline)
 const TMP_DIR = path.join(process.cwd(), "tmp")
@@ -17,14 +18,10 @@ const SKY_KEY = process.env.API_KEY || "Russellxz"
 const MAX_FILE_MB = Number(process.env.MAX_FILE_MB) || 99
 
 let cache = loadCache()
-
 function saveCache() { try { fs.writeFileSync(CACHE_FILE, JSON.stringify(cache)) } catch{} }
 function loadCache() { try { return JSON.parse(fs.readFileSync(CACHE_FILE, "utf8")) || {} } catch { return {} } }
 function safeUnlink(file) { try { file && fs.existsSync(file) && fs.unlinkSync(file) } catch{} }
 function fileSizeMB(filePath) { try { return fs.statSync(filePath).size / (1024*1024) } catch { return 0 } }
-function wait(ms){ return new Promise(res=>setTimeout(res, ms)) }
-
-function validCache(file){ return file && fs.existsSync(file) && fileSizeMB(file) > 0 }
 
 async function getSkyApiUrl(videoUrl){
   try{
@@ -43,13 +40,21 @@ async function downloadFile(url, outPath){
   return outPath
 }
 
-async function convertToMp3(inputFile){
+async function convertToMp3(inputFile, metadata){
   const outFile = inputFile.replace(path.extname(inputFile), ".mp3")
   await new Promise((resolve, reject) => 
-    ffmpeg(inputFile).audioCodec("libmp3lame").audioBitrate("128k")
-      .format("mp3").on("end", resolve).on("error", reject).save(outFile)
+    ffmpeg(inputFile)
+      .audioCodec("libmp3lame")
+      .audioBitrate("128k")
+      .format("mp3")
+      .on("end", resolve)
+      .on("error", reject)
+      .save(outFile)
   )
   safeUnlink(inputFile)
+
+  // Agregar metadatos ID3
+  if(metadata) NodeID3.update(metadata, outFile)
   return outFile
 }
 
@@ -61,28 +66,36 @@ async function handlePlay(conn, chatId, text, quoted){
   try{ const res = await yts(text); video = res.videos?.[0] } catch{}
   if(!video) return conn.sendMessage(chatId, { text: "❌ Sin resultados." }, { quoted })
 
-  const { url: videoUrl, title, thumbnail } = video
-  const caption = `🎵 ${title}\n🌐 ${videoUrl}`
-  await conn.sendMessage(chatId, { image: { url: thumbnail }, caption }, { quoted })
+  const { url: videoUrl, title, thumbnail, duration, author } = video
+  const artist = author?.name || "Desconocido"
+
+  // Mensaje tipo Spotify Downloader
+  const infoMsg = `*𝚂𝙿𝙾𝚃𝙸𝙵𝚈 𝙳𝙾𝚆𝙽𝙻𝙾𝙰𝙳𝙴𝚁*\n\n🎵 *𝚃𝚒𝚝𝚞𝚕𝚘:* ${title}\n🎤 *𝙰𝚛𝚝𝚒𝚜𝚝\a:* ${artist}\n🕒 *𝙳𝚞𝚛𝚊𝚌𝚒ó𝚗:* ${duration}`
+  await conn.sendMessage(chatId, { image: { url: thumbnail }, caption: infoMsg }, { quoted })
 
   // Revisar cache
   const cached = cache[videoUrl]
-  if(cached && validCache(cached)) {
-    return conn.sendMessage(chatId, { audio: fs.readFileSync(cached), mimetype: "audio/mpeg", fileName: `${title}.mp3` }, { quoted })
+  if(cached && fs.existsSync(cached)) {
+    return conn.sendMessage(chatId, { audio: fs.createReadStream(cached), mimetype: "audio/mpeg", fileName: `${title}.mp3` }, { quoted })
   }
 
-  // Descargar
+  // Descargar audio
   const mediaUrl = await getSkyApiUrl(videoUrl)
   if(!mediaUrl) return conn.sendMessage(chatId, { text: "❌ No se pudo obtener el audio." }, { quoted })
 
   const tempFile = path.join(TMP_DIR, `${crypto.randomUUID()}.tmp`)
   try{
     await downloadFile(mediaUrl, tempFile)
-    const mp3File = await convertToMp3(tempFile)
+
+    const mp3File = await convertToMp3(tempFile, {
+      title, artist, APIC: thumbnail
+    })
+
     if(fileSizeMB(mp3File) > MAX_FILE_MB) throw new Error("Archivo muy grande")
     cache[videoUrl] = mp3File
     saveCache()
-    await conn.sendMessage(chatId, { audio: fs.readFileSync(mp3File), mimetype: "audio/mpeg", fileName: `${title}.mp3` }, { quoted })
+
+    await conn.sendMessage(chatId, { audio: fs.createReadStream(mp3File), mimetype: "audio/mpeg", fileName: `${title}.mp3` }, { quoted })
   } catch(e){
     safeUnlink(tempFile)
     conn.sendMessage(chatId, { text: `❌ Error al descargar: ${e.message}` }, { quoted })
