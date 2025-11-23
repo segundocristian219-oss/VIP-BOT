@@ -58,6 +58,7 @@ let handler = async (m, { conn, text }) => {
   )
 }
 
-handler.command = ['wm', 'take', 'robarsticker']
 
+
+handler.command = ['wm', 'take', 'robarsticker']
 export default handler
