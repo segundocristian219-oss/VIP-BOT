@@ -14,7 +14,7 @@ let handler = async (m, { conn, usedPrefix, command }) => {
   try {
     await conn.sendMessage(m.chat, { react: { text: '⚡', key: m.key } })
 
-  conn.reply(m.chat, `${emoji} Mejorando la calidad de la imagen....`, m, fake)  
+  conn.reply(m.chat, `${emoji} Mejorando la calidad de la imagen....`, m,)  
     const media = await quoted.download()
     const ext = mime.split('/')[1]
     const filename = `mejorada_${Date.now()}.${ext}`
