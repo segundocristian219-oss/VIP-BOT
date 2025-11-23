@@ -16,31 +16,39 @@ const handler = async (m, { args, conn, command, prefix }) => {
 
   const query = encodeURIComponent(args.join(' '));
 
-  // Función para buscar en la API principal con timeout de 6s
-  const fetchWithTimeout = (url, timeout = 6000) =>
-    Promise.race([
-      fetch(url).then(res => res.json()),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), timeout))
-    ]);
-
   try {
-    let json;
-
-    try {
-      // Intentar API principal
-      json = await fetchWithTimeout(`https://api.delirius.store/search/spotify?q=${query}`);
+    // Funciones para obtener datos y link de audio de cada API
+    const fetchPrimary = async () => {
+      const res = await fetch(`https://api.delirius.store/search/spotify?q=${query}`);
+      const json = await res.json();
       if (!json.status || !json.data || json.data.length === 0) throw new Error('No hay resultados');
-    } catch {
-      // Si falla o timeout, usar fallback silenciosa
+      const track = json.data[0];
+      const dlRes = await fetch(`https://api.delirius.store/download/spotifydl?url=${encodeURIComponent(track.url)}`)
+        .then(r => r.json());
+      if (!dlRes?.data?.url) throw new Error('No audio');
+      return { track, audioUrl: dlRes.data.url };
+    };
+
+    const fetchFallback = async () => {
       const { data } = await axios.get(`${apis.fallback}search/spotify?q=${query}&limit=10`);
       if (!data.data || data.data.length === 0) throw new Error('No hay resultados en fallback');
-      json = { data: data.data[0] };
-    }
+      const track = data.data[0];
+      // Intentar primera descarga
+      try {
+        const res1 = await fetch(`${apis.fallback}download/spotifydl?url=${encodeURIComponent(track.url)}`);
+        const dl1 = await res1.json();
+        if (dl1?.data?.url) return { track, audioUrl: dl1.data.url };
+        throw new Error('No audio');
+      } catch {
+        const res2 = await fetch(`${apis.fallback}download/spotifydlv3?url=${encodeURIComponent(track.url)}`);
+        const dl2 = await res2.json();
+        if (dl2?.data?.url) return { track, audioUrl: dl2.data.url };
+        throw new Error('No audio fallback');
+      }
+    };
 
-    const track = json.data[0] || json.data; // compatibilidad con ambos formatos
-    const downloadUrl = track.url.includes('spotify') 
-      ? `https://api.delirius.store/download/spotifydl?url=${encodeURIComponent(track.url)}` 
-      : track.url;
+    // Lanzar ambas APIs simultáneamente y quedarnos con la primera que devuelva audio
+    const { track, audioUrl } = await Promise.any([fetchPrimary(), fetchFallback()]);
 
     // Enviar info
     const caption = `
@@ -55,31 +63,12 @@ const handler = async (m, { args, conn, command, prefix }) => {
 ╚═════════════════╝`;
 
     await conn.sendMessage(m.chat, { image: { url: track.image }, caption }, { quoted: m });
-
-    // Descargar audio con fallback si falla
-    let audioUrl;
-    try {
-      const res = await fetch(downloadUrl);
-      const dl = await res.json();
-      audioUrl = dl.data.url;
-      if (!audioUrl) throw new Error('No URL');
-    } catch {
-      // Fallback descarga
-      try {
-        const res2 = await fetch(`${apis.fallback}download/spotifydlv3?url=${encodeURIComponent(track.url)}`);
-        const dl2 = await res2.json();
-        audioUrl = dl2.data.url;
-      } catch (e) {
-        return m.reply('❌ No se pudo descargar el audio', m);
-      }
-    }
-
     await conn.sendMessage(m.chat, { audio: { url: audioUrl }, mimetype: 'audio/mpeg', fileName: `${track.title}.mp3` }, { quoted: m });
     await conn.sendMessage(m.chat, { react: { text: '✅', key: m.key } });
 
   } catch (e) {
     console.log(e);
-    m.reply('⚠️ Ocurrió un error al buscar o descargar la canción.', m);
+    m.reply('❌ No se pudo obtener la canción.', m);
   }
 };
 
