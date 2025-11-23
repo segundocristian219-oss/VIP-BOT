@@ -6,7 +6,6 @@ import ffmpeg from "fluent-ffmpeg"
 import { promisify } from "util"
 import { pipeline } from "stream"
 import crypto from "crypto"
-import NodeID3 from "node-id3"
 
 const streamPipe = promisify(pipeline)
 const TMP_DIR = path.join(process.cwd(), "tmp")
@@ -40,7 +39,7 @@ async function downloadFile(url, outPath){
   return outPath
 }
 
-async function convertToMp3(inputFile, metadata){
+async function convertToMp3(inputFile){
   const outFile = inputFile.replace(path.extname(inputFile), ".mp3")
   await new Promise((resolve, reject) => 
     ffmpeg(inputFile)
@@ -52,17 +51,6 @@ async function convertToMp3(inputFile, metadata){
       .save(outFile)
   )
   safeUnlink(inputFile)
-
-  // Validar metadata antes de pasar a NodeID3
-  if(metadata){
-    const safeMeta = {
-      title: metadata.title || "Desconocido",
-      artist: metadata.artist || "Desconocido",
-      APIC: metadata.APIC || undefined
-    }
-    NodeID3.update(safeMeta, outFile)
-  }
-
   return outFile
 }
 
@@ -95,11 +83,7 @@ async function handlePlay(conn, chatId, text, quoted){
   try{
     await downloadFile(mediaUrl, tempFile)
 
-    const mp3File = await convertToMp3(tempFile, {
-      title, 
-      artist, 
-      APIC: thumbnail
-    })
+    const mp3File = await convertToMp3(tempFile)
 
     if(fileSizeMB(mp3File) > MAX_FILE_MB) throw new Error("Archivo muy grande")
     cache[videoUrl] = mp3File
