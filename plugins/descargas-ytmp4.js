@@ -66,8 +66,7 @@ const handler = async (msg, { conn, args, command }) => {
 ✦ Título: ${title}
 ✦ Duración: ${dur}
 ✦ Source: api-sky.ultraplus.click
-
-🤖 𝙎𝙪𝙠𝙞 𝘽𝙤𝙩`;
+`;
 
     await conn.sendMessage(jid, { video: { url: mediaUrl }, mimetype: "video/mp4", caption }, { quoted: msg });
     await conn.sendMessage(jid, { react: { text: "✅", key: msg.key } });
