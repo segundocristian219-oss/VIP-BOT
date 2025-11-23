@@ -9,9 +9,9 @@ const apis = {
   random1: 'https://api.agungny.my.id/api/'
 };
 
-// Timeout global
-const timeoutPromise = (ms) =>
-  new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms));
+// Helper: timeout para promesas
+const withTimeout = (promise, ms) =>
+  Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))]);
 
 const handler = async (m, { args, conn, command, prefix }) => {
   if (!args[0]) {
@@ -21,10 +21,9 @@ const handler = async (m, { args, conn, command, prefix }) => {
   }
 
   await conn.sendMessage(m.chat, { react: { text: '⏱', key: m.key } });
-
   const query = encodeURIComponent(args.join(' '));
 
-  // Funciones para cada API
+  // Función de fetch de Delirius principal
   const fetchDelirius = async () => {
     const res = await fetch(`https://api.delirius.store/search/spotify?q=${query}`);
     const json = await res.json();
@@ -35,6 +34,7 @@ const handler = async (m, { args, conn, command, prefix }) => {
     return { track, audioUrl: dlRes.data.url };
   };
 
+  // Función de fallback Delirius
   const fetchDeliriusFallback = async () => {
     const { data } = await axios.get(`${apis.deliriusFallback}search/spotify?q=${query}&limit=10`);
     if (!data.data || data.data.length === 0) throw new Error('No hay resultados en fallback');
@@ -54,28 +54,30 @@ const handler = async (m, { args, conn, command, prefix }) => {
 
   // Función genérica para APIs alternativas
   const fetchOtherAPI = async (baseUrl) => {
-    const { data } = await axios.get(`${baseUrl}spotify/search?q=${query}`);
-    if (!data || !data.result || data.result.length === 0) throw new Error('No hay resultados');
-    const track = data.result[0];
-    if (!track.audio) throw new Error('No audio');
-    return { track, audioUrl: track.audio };
+    try {
+      const { data } = await axios.get(`${baseUrl}spotify/search?q=${query}`);
+      if (!data || !data.result || data.result.length === 0) throw new Error('No resultados');
+      const track = data.result[0];
+      if (!track.audio) throw new Error('No audio');
+      return { track, audioUrl: track.audio };
+    } catch {
+      throw new Error('API alternativa no devolvió audio');
+    }
   };
 
   try {
+    // Lista de promesas, cada una con timeout de 9s
     const competitors = [
-      fetchDelirius(),
-      fetchDeliriusFallback(),
-      fetchOtherAPI(apis.siputzx),
-      fetchOtherAPI(apis.ryzen),
-      fetchOtherAPI(apis.rioo),
-      fetchOtherAPI(apis.random1)
+      withTimeout(fetchDelirius(), 9000),
+      withTimeout(fetchDeliriusFallback(), 9000),
+      withTimeout(fetchOtherAPI(apis.siputzx), 9000),
+      withTimeout(fetchOtherAPI(apis.ryzen), 9000),
+      withTimeout(fetchOtherAPI(apis.rioo), 9000),
+      withTimeout(fetchOtherAPI(apis.random1), 9000)
     ];
 
-    // Competencia con timeout global de 9 segundos
-    const { track, audioUrl } = await Promise.race([
-      Promise.any(competitors),
-      timeoutPromise(9000)
-    ]);
+    // Esperar la primera que resuelva
+    const { track, audioUrl } = await Promise.any(competitors);
 
     // Enviar info
     const caption = `
@@ -95,9 +97,7 @@ const handler = async (m, { args, conn, command, prefix }) => {
 
   } catch (e) {
     console.log(e);
-    if (e.message === 'timeout') {
-      return m.reply('❌ Ninguna API respondió en 9 segundos. Intenta nuevamente.', m);
-    }
+    if (e.message === 'timeout') return m.reply('❌ Ninguna API respondió en 9 segundos. Intenta nuevamente.', m);
     m.reply('❌ No se pudo obtener la canción.', m);
   }
 };
