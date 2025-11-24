@@ -1,26 +1,10 @@
-const urlRegex = /\b((https?:\/\/|www\.)[^\s/$.?#].[^\s]*)/gi;
-
-const allowedDomains = [
-  'instagram.com',
-  'www.instagram.com',
-  'ig.me'
-];
-
-const shorteners = [
-  'bit.ly',
-  'tinyurl.com',
-  't.co',
-  'shorturl.at',
-  'goo.gl',
-  'rebrand.ly',
-  'is.gd',
-  'cutt.ly',
-  'linktr.ee',
-  'shrtco.de'
-];
-
 export async function before(m, { conn, isAdmin }) {
-  if (m.isBaileys && m.fromMe) return true;
+
+  // 🛑 IGNORAR SI EL MENSAJE LO MANDÓ EL BOT, SIEMPRE
+  if (m.id.startsWith(conn.user.jid)) return true
+  if (m.fromMe) return true
+  if (m.isBaileys) return true
+
   if (!m.isGroup) return false;
 
   const chat = global.db.data.chats[m.chat];
@@ -42,6 +26,7 @@ export async function before(m, { conn, isAdmin }) {
         lower.includes(normalizedGroupLink) ||
         allowedDomains.some(domain => lower.includes(domain))
       ) continue;
+
       if (shorteners.some(s => lower.includes(s)) || !allowedDomains.some(d => lower.includes(d))) {
         try { await conn.sendMessage(m.chat, { delete: m.key }); } catch {}
         try {
