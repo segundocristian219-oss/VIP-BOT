@@ -77,8 +77,7 @@ async function sendMp3(conn, job, asDocument, triggerMsg) {
 ✦ 𝗧𝗶́𝘁𝘂𝗹𝗼: ${title}
 ✦ 𝗗𝘂𝗿𝗮𝗰𝗶𝗼́𝗻: ${durationTxt}
 ✦ 𝗦𝗼𝘂𝗿𝗰𝗲: api-sky.ultraplus.click
-
-🤖 𝙎𝙪𝙠𝙞 𝘽𝙤𝙩`;
+`;
 
   const buf = fs.readFileSync(filePath);
   if (asDocument) {
