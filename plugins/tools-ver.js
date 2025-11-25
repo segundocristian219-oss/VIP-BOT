@@ -106,5 +106,8 @@ const handler = async (msg, ctx = {}) => {
   }
 };
 
+
+handler.help = ["𝖱𝖾𝖾𝗇𝗏𝗂𝖺𝗋"]
+handler.tags = ["𝖳𝖮𝖮𝖫𝖲"]
 handler.command = ["ver", "reenviar"];
 export default handler;
