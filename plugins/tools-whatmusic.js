@@ -27,10 +27,10 @@ let handler = async (m, { conn, usedPrefix, command }) => {
     }
 
     let duration = q.seconds || 0
-    if (duration > 40) {
+    if (duration > 180) {
       return conn.reply(
         m.chat,
-        `⚠️ El archivo solo puede durar *40 segundos máximo*. El que enviaste dura *${duration}s*.`,
+        `⚠️ El archivo solo puede durar *180 segundos máximo*. El que enviaste dura *${duration}s*.`,
         m,
         rcanal
       )
