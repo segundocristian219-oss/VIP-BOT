@@ -14,7 +14,7 @@ const __dirname = path.dirname(__filename)
 const streamPipeline = promisify(pipeline)
 
 const CDN_UPLOAD = 'https://cdn.russellxz.click/upload.php'
-const NEOXR_KEY = 'russellxz'
+const NEOXR_KEY = 'Neveloopp'
 
 function unwrapMessage(m) {
   let n = m
