@@ -300,7 +300,7 @@ const handler = async (msg, { conn, text, command }) => {
 ┃⥤⏱️ *Duración:* ${duration}
 ┃⥤👁️ *Vistas:* ${(views || 0).toLocaleString()}
 ┃⥤👤 *Autor:* ${author?.name || author || "Desconocido"}
-┗━━━━━━━━━━━━━━━┛
+┗━━━━━━━━━━━━━━━━┛
 
 ┏━━━━━━━━━━━━━━━━
 ┃📥 *Reacciona para descargar:*
@@ -308,7 +308,7 @@ const handler = async (msg, { conn, text, command }) => {
 ┃↦❤️ Video MP4
 ┃↦📄 Audio como Documento
 ┃↦📁 Video como Documento
-┗━━━━━━━━━━━━━━━┛
+┗━━━━━━━━━━━━━━━━┛
 `.trim()
   const preview = await conn.sendMessage(msg.key.remoteJid, { image: { url: thumbnail }, caption }, { quoted: msg })
   pendingManagerAdd(preview.key.id, { chatId: msg.key.remoteJid, videoUrl, title, commandMsg: msg, sender: msg.key.participant || msg.participant, downloading: false, lastPct: 0 })
