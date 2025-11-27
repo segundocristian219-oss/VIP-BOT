@@ -294,7 +294,7 @@ const handler = async (msg, { conn, text, command }) => {
   }
   const video = res.videos?.[0]
   if (!video) return await sendError(conn, msg.key.remoteJid, "Sin resultados.", msg)
-  const { url: title, timestamp: duration, views, author, thumbnail } = video
+  const { url: videoUrl, title, timestamp: duration, views, author, thumbnail } = video
   const caption = `┏━[ *Angel-𝖡᥆𝗍 𝖬𝗎𝗌𝗂𝖼 🎧* ]━┓
 ┃⥤🎧 *Título:* ${title}
 ┃⥤⏱️ *Duración:* ${duration}
@@ -302,11 +302,14 @@ const handler = async (msg, { conn, text, command }) => {
 ┃⥤👤 *Autor:* ${author?.name || author || "Desconocido"}
 ┗━━━━━━━━━━━━━━━┛
 
-📥 Reacciona para descargar:
-☛ 1️⃣ / 👍 Audio MP3
-☛ 2️⃣ / ❤️ Video MP4
-☛ 3️⃣ / 📄 Audio Doc
-☛ 4️⃣ / 📁 Video Doc`.trim()
+┏━━━━━━━━━━━━━━━━
+┃📥 *Reacciona para descargar:*
+┃↦👍 Audio MP3
+┃↦❤️ Video MP4
+┃↦📄 Audio como Documento
+┃↦📁 Video como Document
+┗━━━━━━━━━━━━━━━┛
+`.trim()
   const preview = await conn.sendMessage(msg.key.remoteJid, { image: { url: thumbnail }, caption }, { quoted: msg })
   pendingManagerAdd(preview.key.id, { chatId: msg.key.remoteJid, videoUrl, title, commandMsg: msg, sender: msg.key.participant || msg.participant, downloading: false, lastPct: 0 })
   try {
