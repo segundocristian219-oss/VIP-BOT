@@ -307,7 +307,7 @@ const handler = async (msg, { conn, text, command }) => {
 ┃↦👍 Audio MP3
 ┃↦❤️ Video MP4
 ┃↦📄 Audio como Documento
-┃↦📁 Video como Document
+┃↦📁 Video como Documento
 ┗━━━━━━━━━━━━━━━┛
 `.trim()
   const preview = await conn.sendMessage(msg.key.remoteJid, { image: { url: thumbnail }, caption }, { quoted: msg })
