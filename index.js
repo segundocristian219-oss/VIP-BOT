@@ -37,6 +37,20 @@ const { CONNECTING } = ws
 const { chain } = lodash
 const PORT = process.env.PORT || process.env.SERVER_PORT || 3000
 
+import {
+  downloadContentFromMessage,
+  generateWAMessageFromContent,
+  prepareWAMessageMedia,
+  generateWAMessageContent
+} from '@whiskeysockets/baileys'
+
+global.wa = {
+  downloadContentFromMessage,
+  generateWAMessageFromContent,
+  prepareWAMessageMedia,
+  generateWAMessageContent
+}
+
 let { say } = cfonts
 console.log(chalk.magentaBright('\nIniciando MaycolPlus...'))
 say('MaycolPlus', {
