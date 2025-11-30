@@ -375,10 +375,13 @@ const chats = Object.entries(conn.chats || {})
   .filter(([jid, chat]) => !jid.endsWith('@g.us') && chat.isChats)
   .map(([jid]) => jid)
 }
+conn.handler = handler.handler.bind(global.conn)
+conn.connectionUpdate = connectionUpdate.bind(global.conn)
+conn.credsUpdate = saveCreds.bind(global.conn, true)
+
 conn.ev.on('messages.upsert', conn.handler)
-if (typeof conn.connectionUpdate === 'function')
-if (typeof conn.connectionUpdate === 'function') {
-    conn.ev.on('connection.update', conn.connectionUpdate)
+conn.ev.on('connection.update', conn.connectionUpdate)
+conn.ev.on('creds.update', conn.credsUpdate)
 }
 conn.ev.on('creds.update', conn.credsUpdate)
 isInit = false
