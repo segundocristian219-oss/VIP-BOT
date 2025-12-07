@@ -20,17 +20,17 @@ let handler = async (m, { conn }) => {
       image: 'https://cdn.russellxz.click/af65870a.jpeg',
       footer: '𝗄𝗄',
       buttons: [
-        { name: 'WhatsApp', url: 'https://wa.me/5215648181095' }
+        { name: 'WhatsApp', url: 'https://wa.me/5212213479743' }
 
       ]
     },
     {
-      name: 'Cristian.𝗑𝗒𝗓',
+      name: 'Cxsper.𝗑𝗒𝗓',
       desc: 'tester oficial 🏞️',
-      image: 'https://cdn.russellxz.click/54ba5eb9.jpeg',
+      image: 'https://cdn.russellxz.click/60c40448.jpeg',
       footer: '𝖭𝗂𝖼𝖾 𝖣𝗈 𝖸𝗈𝗎',
       buttons: [
-        { name: 'WhatsApp', url: 'https://wa.me/5215648181095' }
+        { name: 'WhatsApp', url: 'https://wa.me/5218110030725' }
 
       ]
     }
