@@ -52,8 +52,8 @@ global.wa = {
 }
 
 let { say } = cfonts
-console.log(chalk.magentaBright('\nIniciando MaycolPlus...'))
-say('MaycolPlus', {
+console.log(chalk.magentaBright('\nIniciando HernandezPlus...'))
+say('HernandezPlus', {
 font: 'block',
 align: 'center',
 gradient: ['grey', 'white']
