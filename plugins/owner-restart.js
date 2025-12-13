@@ -1,20 +1,22 @@
-let handler = async (m, { conn, usedPrefix, command }) => {
+//Código desarrollado por Angeldown12,
 
-    try {
-        m.reply('「🏜️」 Reiniciando El Bot....')
-        setTimeout(() => {
-            process.exit(0)
-        }, 3000) 
-    } catch (error) {
-        console.log(error)
-        conn.reply(m.chat, `${error}`, m)
-    }
+const handler = async (m, { conn, isROwner, text }) => {
+const datas = global
+
+if (!process.send) throw 'Dont: node main.js\nDo: node index.js'
+const { key } = await conn.sendMessage(m.chat, {text: `🚀🚀`}, {quoted: m})
+await delay(1000 * 1)
+await conn.sendMessage(m.chat, {text: `🚀🚀🚀🚀`, edit: key})
+await delay(1000 * 1)
+await conn.sendMessage(m.chat, {text: `🚀🚀🚀🚀🚀🚀`, edit: key})
+await conn.sendMessage(m.chat, {text: `𝐋𝐢𝐬𝐭𝐨 𝐣𝐞𝐟𝐞𝐜𝐢𝐭𝐨 HERNANDEZ`, edit: key})
+//process.send('reset')
+process.exit(0); 
 }
-
-
-handler.help = ["𝖱𝖾𝗌𝗍𝖺𝗋𝗍"]
-handler.tags = ["𝖮𝖶𝖭𝖤𝖱"]
-handler.command = ['rei', 'restart'] 
-handler.rowner = true
-
+handler.help = ['restart'] 
+handler.tags = ['owner']
+handler.command = ['restart','reiniciar'] 
+handler.owner = true
 export default handler
+
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
