@@ -58,7 +58,7 @@ const handler = async (m, { conn, participants }) => {
     },
     message: {
       locationMessage: {
-        name: '𝖧𝗈𝗅𝖺, 𝑺𝑯𝑨𝑫𝑶𝑾 𝑩𝑶𝑻',
+        name: '𝖧𝗈𝗅𝖺, 𝑽𝑰𝑷 𝑩𝑶𝑻',
         jpegThumbnail: thumb
       }
     },
